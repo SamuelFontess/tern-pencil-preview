@@ -29,6 +29,7 @@ export type State = {
 	busy: boolean,
 	paused: boolean,
 	stopped: boolean,
+	force: boolean, -- `r` asked for a render that has not started yet
 	disk: string?,
 	rendered: string?,
 	problem: Problem?,
@@ -43,6 +44,8 @@ view.LIST_ID = "main.preview.panel.layers."
 local WARNING_KINDS: { [string]: boolean } = { nofile = true, noframes = true, nocli = true, timeout = true }
 local MARKDOWN_KINDS: { [string]: boolean } = { nofile = true, nocli = true }
 
+-- Characters of a notice shown in the dock.
+local NOTICE_MAX = 120
 -- Characters of a text layer's content shown in the inspector.
 local CONTENT_MAX = 200
 
@@ -88,6 +91,9 @@ local function problemView(state: State, problem: Problem): Node
 	local detail = problem.detail
 	if detail then
 		table.insert(children, ui.code(detail))
+	end
+	if state.busy then
+		table.insert(children, ui.progress(nil, "Rendering " .. state.name .. "…"))
 	end
 	if state.path then
 		table.insert(children, ui.row({ button("Render", "render", "accent"), button("Open in Pencil", "open", "neutral") }))
@@ -224,7 +230,8 @@ local function dockView(state: State): Node
 	end
 	local notice = state.notice
 	if notice then
-		table.insert(spans, ui.span("  " .. notice.title, "warning"))
+		local line = (notice.title .. ": " .. notice.text):gsub("%s+", " ")
+		table.insert(spans, ui.span("  " .. clip(line, NOTICE_MAX), "warning"))
 	end
 	local status = ui.row({ ui.badge("File", "accent"), set(ui.text(spans), { grow = 1 }) })
 	return ui.col({ status, ui.text({ ui.span(HINTS, "dim") }) })

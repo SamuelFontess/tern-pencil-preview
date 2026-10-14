@@ -27,13 +27,30 @@ local function running(pane: number): boolean
 	return false
 end
 
--- Records an error: a problem card when no image is shown, else a notice in the dock over the image.
+-- Records an error: a problem card when no image is shown, else a notice in the dock over the image (with a
+-- toast when the notice first appears).
 local function report(state: State, kind: string, title: string, text: string, detail: string?)
 	local problem: view.Problem = { kind = kind, title = title, text = text, detail = detail }
 	if state.blob then
+		if state.notice == nil then
+			-- ToastLevel has no "warning"; the notice reports a failure.
+			state.cx:toast("error", problem.title, problem.detail or problem.text)
+		end
 		state.notice = problem
 	else
 		state.problem = problem
+	end
+end
+
+-- Ends background work for a block whose pane is gone, and drops its export and scratch files.
+local function stop(state: State)
+	state.stopped = true
+	local exports, scratch = state.exports, state.scratch
+	if exports then
+		pcall(tern.fs.remove, exports)
+	end
+	if scratch then
+		pcall(tern.fs.remove, scratch)
 	end
 end
 
@@ -68,6 +85,10 @@ local function succeed(state: State, content: string, want: string?, summary: do
 			title = "No top-level frames",
 			text = state.name .. " has no top-level frame to preview.",
 		}
+		return
+	end
+	if not util.safe_id(exported) then
+		failRender(state, content, "unexpected frame id", r)
 		return
 	end
 	local png = (state.exports :: string) .. "/" .. exported .. ".png"
@@ -107,14 +128,16 @@ local function check(state: State): boolean
 	local changed = false
 	local problem, notice = state.problem, state.notice
 	if problem and problem.kind == "read" then
-		state.problem, changed = nil, true
+		-- With no image, render again so the real outcome replaces the cleared card.
+		state.problem, state.disk, changed = nil, nil, true
 	end
 	if notice and notice.kind == "read" then
 		state.notice, changed = nil, true
 	end
-	if content == state.disk and state.rendered == state.frame_id then
+	if not state.force and content == state.disk and state.rendered == state.frame_id then
 		return changed
 	end
+	state.force = false
 	local cli = launch.pen_cli()
 	if cli == nil then
 		report(
@@ -154,7 +177,7 @@ local function check(state: State): boolean
 		tern.process.run(argv, opts, function(r: ProcessResult, _: WindowCx?)
 			state.busy = false
 			if not running(cx.pane) then
-				state.stopped = true
+				stop(state)
 				return
 			end
 			local again = false
@@ -175,7 +198,8 @@ local function check(state: State): boolean
 					failRender(state, content, why or "invalid summary", r)
 				end
 			end
-			if again then
+			-- So does a forced render (`r`) asked for while this one ran.
+			if again or state.force then
 				check(state)
 			end
 			cx:render()
@@ -195,13 +219,18 @@ local function schedule(state: State)
 	end
 	local cx = state.cx
 	if not running(cx.pane) then
-		state.stopped = true
+		stop(state)
 		return
 	end
-	state.timer = tern.timer(EVERY_MS, function()
+	local handle: TimerHandle? = nil
+	handle = tern.timer(EVERY_MS, function()
+		-- A timer cancelled by a pause may still fire; only the current one ticks.
+		if state.timer ~= handle then
+			return
+		end
 		state.timer = nil
 		if not running(cx.pane) then
-			state.stopped = true
+			stop(state)
 			return
 		end
 		if state.paused then
@@ -212,10 +241,12 @@ local function schedule(state: State)
 		end
 		schedule(state)
 	end)
+	state.timer = handle
 end
 
 local function forceRender(state: State)
-	state.disk = nil
+	-- Kept until a render starts, so `r` during a busy render runs after it.
+	state.force = true
 	check(state)
 end
 
@@ -263,6 +294,7 @@ local preview: BlockDef<State> = {
 			busy = false,
 			paused = false,
 			stopped = false,
+			force = false,
 			disk = nil,
 			rendered = nil,
 			problem = nil,
@@ -293,8 +325,9 @@ local preview: BlockDef<State> = {
 			return state
 		end
 		local key = util.key(path)
-		state.exports = tern.plugin.data .. "/exports/" .. key
-		state.scratch = tern.plugin.data .. "/scratch/" .. key .. ".pen"
+		-- Per pane: a render empties its export dir, which must never hold another pane's image.
+		state.exports = tern.plugin.data .. "/exports/" .. key .. "/" .. tostring(cx.pane)
+		state.scratch = tern.plugin.data .. "/scratch/" .. key .. "-" .. tostring(cx.pane) .. ".pen"
 		-- The first render runs even when paused, so a restored block shows its design.
 		check(state)
 		schedule(state)
