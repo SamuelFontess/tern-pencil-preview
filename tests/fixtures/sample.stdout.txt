@@ -1,0 +1,20 @@
+
+
+[INFO] Starting pen.dev (headless)...
+[INFO] Ready.
+
+[1mpen.dev Interactive Shell[22m
+[2mFile: <PATH>[22m
+[2mType tool calls like: read_skill({ path: "pen-schema.md" })[22m
+[2mType save() to save, exit() to quit.[22m
+
+[36mpen[39m [2m>[22m OK
+
+Global variables (e.g. root) carry over to subsequent calls!
+
+## Print output
+Exported /<EXPORT_DIR>/FSXkK.png  
+{"v":1,"layers":[{"id":"FSXkK","name":"Login","type":"frame","d":0,"p":null,"w":390,"h":844,"x":0,"y":0,"fill":"#0F172A"},{"id":"LvEbe","name":"Title","type":"text","d":1,"p":"FSXkK","w":243,"h":44,"x":24,"y":24,"content":"Welcome \"back\"","fill":"#FFFFFF"},{"id":"ButZP","name":"Card","type":"frame","d":1,"p":"FSXkK","w":342,"h":200,"x":24,"y":84,"fill":"#1E293B"},{"id":"C3I9OB","name":"Avatar","type":"rectangle","d":2,"p":"ButZP","w":48,"h":48,"x":0,"y":0,"fill":"#7C3AED"},{"id":"mQuDf","name":"Auto","type":"frame","d":0,"p":null,"w":60,"h":67,"x":500,"y":0,"fill":"#FFFFFF"},{"id":"yg1Vx","name":"Label","type":"text","d":1,"p":"mQuDf","w":20,"h":27,"x":20,"y":20,"content":"fit","fill":"#000000"}],"exported":"FSXkK","scale":2}
+
+
+[2mGoodbye.[22m
