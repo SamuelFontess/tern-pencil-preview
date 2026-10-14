@@ -5,6 +5,7 @@ version = "0.1.0"
 description = "Preview pen.dev .pen designs: frames as images, layers and an inspector."
 icon = "pen"
 host = "host.luau"
+window = "window.luau"
 
 [[blocks]]
 id = "preview"
