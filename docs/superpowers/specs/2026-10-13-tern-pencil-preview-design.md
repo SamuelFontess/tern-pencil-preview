@@ -1,87 +1,83 @@
 # tern-pencil-preview — Design
 
-Data: 2026-10-13 · Status: aprovado para implementação (fase 1)
+Data: 2026-10-13 · Status: incremento 1 aprovado para implementação
 
 ## Objetivo
 
 Plugin do Tern que mostra designs `.pen` (pen.dev / Pencil) num block nativo:
-imagem de cada frame, árvore de layers e inspetor de propriedades, atualizando
-sozinho quando o design muda — inclusive quando um agente (omp, Claude) edita
-pelo MCP do Pencil. A fase 2 adiciona edição leve (texto e cor) pelo próprio
-block. O Pencil continua sendo o editor; o Tern é a janela de revisão.
+imagem de cada frame de topo, layers e inspetor, atualizando quando o design
+muda. O Pencil continua sendo o editor; o Tern é a janela de revisão. Entrega
+em incrementos, cada um só sobre contratos documentados do pen CLI.
 
 ## Fatos verificados (2026-10-13, Windows, pen CLI 0.3.9, Tern 0.8.3)
 
 | Fato | Evidência |
 | --- | --- |
-| `pen --in f.pen --export out.png` exporta sem prompt/IA | 2,6 s, PNG gerado |
-| `pen interactive -i f.pen -o tmp.pen` aceita comandos por stdin e sai com `exit()` | `Get`, `Export` executados, exit 0 |
+| `pen interactive -i f.pen -o tmp.pen` (headless, documentado) aceita comandos por stdin e sai com `exit()`; sem `save()` não grava nada | `Get`, `Export` executados, exit 0, arquivos intactos |
+| Headless leva ~3 s por execução | medido |
 | `Export(ids, "png", dir, {scale})` grava `<dir>/<nodeId>.png`; escala padrão 2 | frame 400×300 → 800×600 |
-| Formatos: png, jpeg, webp, pdf, html-tailwind, html-css. **Sem SVG** | erro do `Export` com `"svg"` |
-| App desktop expõe servidor MCP stdio em `<Pen>/resources/app.asar.unpacked/out/mcp-server-windows-x64.exe -app desktop` | `initialize` + `tools/list` |
-| Chamada MCP avulsa (stdin com initialize, initialized, N `tools/call`; stdin fecha) termina sozinha em ~0,3 s | exit 0, respostas fora de ordem (casar por `id`) |
-| `execute` e `browser` aceitam `filePath`, mas só para arquivo **já aberto** no app | erro `A file needs to be open in the editor` |
-| `get_app_state` devolve markdown com ``Currently active canvas editor: `/C:/…/f.pen` `` | saída real |
-| Edição via MCP fica só na memória do app; **não chega ao disco** (10 s observados) | `Update` + leitura do arquivo |
-| Export pelo app reflete o estado não salvo e leva ~0,25 s | PNG mudou após `Update` |
-| `Pen.exe "<arquivo>"` abre o arquivo no app (associação `.pen` no registro) | `get_app_state` passou a mostrá-lo |
-| No Windows `pen` é `pen.cmd`, que roda `node <npm>/node_modules/@pen.dev/cli/dist/index.mjs` | conteúdo do shim |
-| `tern.process.run` executa sem shell; procura o programa no `PATH` do daemon | doc da API |
+| Formatos de export: png, jpeg, webp, pdf, html-tailwind, html-css. **Sem SVG** | erro do `Export` com `"svg"` |
+| `Get(visit)` dá `ctx.bounds` com tamanho resolvido, inclusive frames `fit_content` | frame sem `width`/`height` → 60×67 |
+| No headless, `Print(string)` sai cru numa linha do stdout | saída real |
+| `pen interactive -a desktop` (documentado, "changes are applied live") conecta no app em ~1,7 s; a saída de cada comando vem num objeto JSON `{"message": "…"}` | saída real |
+| No modo app, **`-i` não escolhe o documento**: comandos agem no documento ativo do app | `-i sample.pen` devolveu o conteúdo de `probe.pen` |
+| Edição feita por agente no app fica na memória; **não chega ao disco** sem o usuário salvar | `Update` + 10 s observando o arquivo |
+| O export pelo app reflete o estado não salvo | PNG mudou após `Update` |
+| No Windows `pen` é `pen.cmd`, que roda `node <npm>/node_modules/@pen.dev/cli/dist/index.mjs %*` | conteúdo do shim |
+| `tern.process.run` executa sem shell e procura o programa no `PATH` do daemon | doc da API |
 | Node `image` do Tern: PNG/JPEG/WebP/GIF até 4096 px por lado, blob via `cx:blob`; só em block/lens | doc de elementos |
 
-## Escopo
+## Incrementos
 
-### Fase 1 (esta entrega)
+### Incremento 1 — preview a partir do arquivo (esta entrega)
 
 1. Block `pencil-preview.preview` que abre um `.pen` e mostra:
    - seletor de frames de topo (anterior/próximo);
-   - imagem PNG do frame selecionado, ajustada ao painel, com zoom nativo do Tern;
+   - imagem PNG do frame selecionado, ajustada ao painel, com o zoom nativo do Tern;
    - painel de layers do frame (lista indentada, selecionável) e inspetor do layer selecionado;
-   - dock com modo (Ao vivo / Arquivo), nome do arquivo, frame i/n, hora da última atualização e atalhos.
-2. Dois modos de fonte, escolhidos automaticamente a cada ciclo:
-   - **Ao vivo**: o arquivo está aberto no app Pencil → leitura e export pelo MCP do app (vê alterações não salvas).
-   - **Arquivo**: app fechado ou arquivo não aberto nele → leitura do `.pen` do disco e export pelo `pen` CLI headless.
-3. Atualização automática (polling) com pausa/retomada.
-4. Formas de abrir: "Open with › Pencil Preview", abrir `.pen` pelo Files/paleta/`tern open` (rota com interruptor), e o comando "Pencil: preview the document open in Pencil".
-5. Ações: abrir no Pencil, abrir o `.pen` como texto, copiar id do layer, recarregar.
+   - dock: nome do arquivo, frame i/n, hora da última renderização, aviso e atalhos.
+2. Fonte: o arquivo no disco, renderizado pelo `pen interactive` headless.
+3. Atualização automática: confere o arquivo a cada 2 s e renderiza de novo quando o conteúdo muda; pausa e retomada.
+4. Formas de abrir: "Open with › Pencil Preview"; abrir `.pen` pelo Files, pela paleta ou com `tern open` (rota com interruptor).
+5. Ações: abrir no app padrão do sistema para `.pen` (o Pencil), abrir o `.pen` como texto, copiar o id do layer, renderizar de novo.
 
-### Fase 2 (mesmo spec, entrega seguinte)
+### Incremento 2 — modo ao vivo (próxima entrega)
 
-Edição leve no modo Ao vivo: no layer selecionado, `e` edita `content` (layers `text`) e `f` edita `fill` sólido (`#RRGGBB` ou `#RRGGBBAA`), aplicados com `Update(id, {...})` pelo MCP. A mudança entra no histórico de undo do app e é salva pelo usuário no Pencil. No modo Arquivo a edição fica desabilitada (mensagem no dock), para nunca regravar o arquivo do usuário por fora do app.
+Quando o arquivo está aberto e ativo no Pencil, renderizar pelo `pen interactive -a desktop`, para ver alterações ainda não salvas (as do agente, por exemplo). Proteção obrigatória: na mesma sessão, `get_app_state()` antes e depois do snippet; o resultado só vale se as duas respostas apontarem o documento ativo para o nosso arquivo. Caso contrário, fica no modo arquivo. Dock mostra "Live" ou "File".
+
+### Incremento 3 — edição leve (depois do 2)
+
+Só no modo ao vivo: `e` muda o `content` de um layer `text` e `f` muda o `fill` sólido (`#RRGGBB` ou `#RRGGBBAA`) com `Update(id, {...})`. A alteração entra no undo do Pencil e o usuário salva lá. No modo arquivo, editar fica desligado, para o plugin nunca regravar o arquivo do usuário.
 
 ### Fora de escopo
 
-Reconstruir o canvas em componentes nativos; editar geometria/layout; criar nodes; diff visual entre versões; plataformas além de Windows validadas nesta entrega (macOS/Linux têm caminhos por convenção, marcados como não verificados no README).
+Reconstruir o canvas em componentes nativos; editar geometria/layout; criar nodes; diff visual entre versões; uso do binário MCP interno do app; validação em macOS/Linux nesta entrega (README marca como não verificado).
 
-## Arquitetura
+## Arquitetura (incremento 1)
 
 ```mermaid
 flowchart LR
   subgraph Tern
-    W[window.luau<br/>rota .pen, comandos] -->|new_block / route| B[host.luau<br/>block preview]
+    W[window.luau<br/>rota .pen, interruptor] -->|route| B[host.luau<br/>block preview]
   end
-  B -->|tick| S{arquivo aberto<br/>no app?}
-  S -->|sim| M[mcp-server -app desktop<br/>execute: resumo + Export]
-  S -->|não / app fechado| F[pen CLI headless<br/>interactive -i f -o tmp]
-  M --> P[(PNG em plugin-data)]
-  F --> P
+  B -->|tick 2 s: conteúdo mudou?| R[pen interactive headless<br/>-i arquivo -o scratch]
+  R -->|snippet refresh| P[(PNG + linha de resumo)]
   P -->|tern.fs.read + cx:blob| B
 ```
 
-Tudo roda na metade **host** (worker do daemon, orçamento de 2 s por chamada); processos sempre via `tern.process.run` com callback, nunca bloqueando. A metade **window** só roteia aberturas e registra comandos.
+Tudo roda na metade **host** (worker do daemon, 2 s por chamada); processos sempre por `tern.process.run` com callback e `timeout_ms`. A metade **window** só roteia aberturas e registra o comando do interruptor.
 
 ### Arquivos
 
 | Arquivo | Responsabilidade |
 | --- | --- |
 | `plugin.toml` | id `pencil-preview`, nome "Pencil Preview", ícone `pen`, block `preview` (`files = ["*.pen"]`, `palette = false`) |
-| `host.luau` | `tern.block.define("preview", …)`: estado, ciclo de polling, teclas, eventos, save/restore |
-| `window.luau` | `tern.route.open` para `.pen`, comando de interruptor da rota, comando "preview do documento aberto no Pencil" |
-| `lib/launch.luau` | Resolve argv do pen CLI, caminho do servidor MCP e do app por SO, com overrides por variável de ambiente |
-| `lib/mcp.luau` | Monta o stdin JSON-RPC de uma chamada avulsa, separa respostas por `id`, classifica erros |
-| `lib/doc.luau` | Resumo impresso pelo snippet de refresh → frames de topo e layers |
-| `lib/script.luau` | Gera os snippets JS do `execute` (refresh = resumo + Export; Update na fase 2) com escaping seguro de strings |
-| `lib/view.luau` | Construtores de view puros (frames, imagem, layers, inspetor, dock, telas de erro) |
+| `host.luau` | `tern.block.define("preview", …)`: estado, ciclo, teclas, eventos, save/restore |
+| `window.luau` | `tern.route.open` para `.pen` e comando do interruptor |
+| `lib/launch.luau` | argv do pen CLI e do abridor do sistema, com override por variável de ambiente |
+| `lib/script.luau` | Snippet JS `refresh` e o stdin de uma sessão `pen interactive` |
+| `lib/doc.luau` | Acha e interpreta a linha de resumo → frames e layers |
+| `lib/view.luau` | Views (frames, imagem, layers, inspetor, dock, telas de problema) |
 | `tests/` | Testes de unidade dos módulos puros com `luau` CLI e um stub de `tern` |
 
 ### Contratos entre módulos
@@ -89,57 +85,55 @@ Tudo roda na metade **host** (worker do daemon, orçamento de 2 s por chamada); 
 ```lua
 -- lib/launch.luau
 export type Launch = { argv: { string }, label: string }
-launch.pen_cli(): Launch?            -- argv base do pen CLI (Windows: node + index.mjs; outros: "pen")
-launch.mcp_server(): Launch?         -- argv base do servidor MCP, já com "-app", "desktop", "-agent", "tern-pencil-preview"
-launch.pen_app(path: string): Launch?  -- argv para abrir o arquivo no app
+launch.pen_cli(): Launch?          -- Windows: node + index.mjs a partir do pen.cmd no PATH; outros: { "pen" }
+launch.opener(path: string): Launch  -- Windows: { "explorer.exe", path }; macOS: { "open", path }; Linux: { "xdg-open", path }
 
--- lib/mcp.luau
-export type Call = { tool: string, args: { [string]: any } }
-export type Reply = { ok: boolean, text: string, kind: ("ok" | "not_open" | "no_app" | "tool_error" | "protocol") }
-mcp.request(calls: { Call }): string                 -- stdin completo (linhas JSON)
-mcp.parse(stdout: string, stderr: string, status: number, n: number): { Reply }  -- uma Reply por call, na ordem das calls
-mcp.active_document(app_state_text: string): string? -- caminho nativo do documento ativo
+-- lib/script.luau
+script.js_string(s: string): string          -- literal JS seguro (JSON string)
+script.refresh(want_id: string?, dir: string, max_side: number): string
+script.session(snippets: { string }): string  -- 'execute({ input: "<js>" })\n' por snippet + 'exit()\n'
 
 -- lib/doc.luau
 export type Layer = { id: string, name: string, type: string, depth: number, parent: string?,
   x: number?, y: number?, w: number?, h: number?, content: string?, fill: string?, ref: string?, reusable: boolean? }
-export type Frame = { id: string, name: string, w: number?, h: number?, layers: { Layer } }  -- layers em pré-ordem, sem o próprio frame
-export type Summary = { frames: { Frame }, exported: string?, scale: number? }   -- exported = id do frame exportado neste refresh
-doc.parse(stdout_line: string): (Summary?, string?)     -- JSON {v=1, layers, exported, scale}
-doc.find_summary(text: string): string?                 -- extrai a linha {"v":1,…} de uma saída maior
-
--- lib/script.luau
-script.refresh(want_id: string?, dir: string, max_side: number): string  -- JS: resumo + Export do frame escolhido; imprime a linha {"v":1,…}
-script.update(id: string, props: { [string]: any }): string   -- fase 2
-script.js_string(s: string): string                  -- literal JS seguro (via tern.json.encode)
+export type Frame = { id: string, name: string, type: string, w: number?, h: number?, layers: { Layer } }
+export type Summary = { frames: { Frame }, exported: string?, scale: number? }
+doc.find_summary(stdout: string): string?    -- a linha {"v":1,…}, crua ou dentro de {"message": "…"}
+doc.parse(line: string): (Summary?, string?)
 ```
+
+`Frame.layers` vem em pré-ordem, sem o próprio frame; `depth` é relativo ao frame (filhos diretos = 1).
+
+### Snippet `refresh`
+
+Percorre o documento com `Get(visit)` até profundidade 6 e guarda `id, name, type, depth, parent, bounds (x, y, w, h)`, além de `content`/`fill` quando são string e `ref`/`reusable`. Escolhe o frame `want_id` se ele ainda estiver no topo, senão o primeiro do topo. Calcula `scale = min(2, max_side / maior lado)`, arredondado para baixo com 3 casas, chama `Export([id], "png", dir, {scale})` e imprime uma linha `{"v":1,"layers":[…],"exported":id,"scale":s}`. Documento vazio imprime `exported:null` e não exporta. Com isso, o PNG nunca passa de 4096 px e o Luau não precisa expandir `ref`/instâncias.
 
 ### Estado do block
 
 ```lua
 type State = {
-  cx: BlockCx, path: string, name: string,
-  mode: "live" | "file" | "none",       -- última fonte que respondeu
-  frames: { Frame }, frame: number,     -- índice do frame selecionado
-  layer: string?,                       -- id do layer selecionado
-  panel: boolean,                       -- painel de layers visível
-  blob: string?, png: string?,          -- blob atual e bytes que o geraram (para não reenviar igual)
-  busy: boolean, paused: boolean,
-  disk: string?,                        -- último conteúdo lido do disco (modo arquivo)
-  cache: { [string]: string },          -- modo arquivo: frameId → caminho do PNG da revisão atual
-  problem: Problem?, updated_at: number?,
+  cx: BlockCx, path: string?, name: string,
+  frames: { Frame }, frame_id: string?,   -- frame selecionado
+  layer: string?,                         -- id do layer selecionado
+  panel: boolean,                         -- painel de layers visível
+  blob: string?, png: string?,            -- blob atual e os bytes que o geraram
+  busy: boolean, paused: boolean, stopped: boolean,
+  disk: string?,                          -- conteúdo do .pen da última renderização
+  rendered: string?,                      -- frame exportado na última renderização
+  problem: Problem?, notice: string?, updated_at: string?,
 }
 ```
 
-Persistência (`save`): `{ frame_id, layer, panel, paused }`. Reaberturas restauram a seleção quando os ids ainda existem.
+`save` guarda `{ frame_id, layer, panel, paused }`; ao reabrir, a seleção volta se os ids ainda existirem.
 
-### Ciclo de atualização
+### Ciclo
 
-- Um tick por vez (`busy`); próximo tick agendado só depois do anterior terminar: 1,5 s no modo Ao vivo, 2 s no modo Arquivo. Pausado (`space`) não agenda. Toda chamada checa se o pane do block ainda existe (`tern.pane.list`) antes de agir, como no exemplo `watch` da doc.
-- **Tentativa Ao vivo** (se `launch.mcp_server()` existe): uma chamada MCP avulsa com uma `execute` (`filePath = path`, `input = script.refresh(...)`). Sucesso → `mode = "live"`, atualiza frames/layers, lê o PNG e só chama `cx:blob` se os bytes mudaram. `not_open` ou `no_app` → cai para o modo Arquivo no mesmo tick. `timeout_ms = 10000`.
-- **Modo Arquivo**: lê o `.pen` com `tern.fs.read(path, 16 MiB)`. Se igual a `disk` e o PNG do frame atual já está em `cache`, nada a fazer. Senão roda `pen interactive -i <path> -o <data>/scratch/<chave>.pen` com stdin `execute({ input: <script.refresh> })\nexit()\n`, `timeout_ms = 60000`, e guarda o PNG em `cache`. O arquivo do usuário nunca é escrito (não há `save()`).
-- Os dois modos executam o mesmo snippet `script.refresh(want_id, dir, 4096)`: percorre o documento com `Get(visit)` (profundidade ≤ 6), usa `ctx.bounds` (tamanho resolvido, inclusive `fit_content`), escolhe o frame `want_id` se ainda existir no topo, senão o primeiro, calcula `scale = min(2, 4096 / maior lado)` e chama `Export([id], "png", dir, {scale})`. Imprime uma linha JSON `{"v":1,"layers":[…],"exported":id,"scale":s}`. Assim o PNG nunca passa de 4096 px e o resumo não depende de interpretar `ref`/instâncias no Luau.
-- Diretório de export: `<tern.plugin.data>/exports/<chave>/`, chave = hash simples do caminho (FNV-1a em Luau), recriado por export.
+- Uma renderização por vez (`busy`). A cada 2 s (se não estiver pausado), um timer lê o `.pen` com `tern.fs.read(path, 16 MiB)` dentro de `pcall`. Se o conteúdo for igual a `disk` e `rendered == frame_id`, não faz nada. Senão renderiza.
+- Renderizar: `pen interactive -i <path> -o <data>/scratch/<chave>.pen` com stdin `script.session({ script.refresh(frame_id, <data>/exports/<chave>, 4096) })`, `timeout_ms = 60000`. Na volta: `doc.find_summary` + `doc.parse`; confere o PNG com `tern.fs.exists` (a doc avisa que um export pode falhar com exit 0); lê o PNG e só chama `cx:blob` se os bytes mudaram.
+- Trocar de frame renderiza o novo frame na hora.
+- `<chave>` = FNV-1a de 32 bits do caminho, em hexa.
+- Todo callback e timer confere `tern.pane.list()` e para quando o pane do block sumiu, como no exemplo `watch` da doc.
+- Erro com imagem anterior na tela: mantém a imagem e mostra o aviso no dock. Sem imagem: card de problema.
 
 ### Interação
 
@@ -148,47 +142,41 @@ Persistência (`save`): `{ frame_id, layer, panel, paused }`. Reaberturas restau
 | `←`/`→`, `[`/`]` | Frame anterior/próximo |
 | `↑`/`↓`, `k`/`j` | Move a seleção de layer (painel aberto) |
 | `l` | Mostra/oculta o painel de layers |
-| `r` | Atualiza agora |
+| `r` | Renderiza agora |
 | `space` | Pausa/retoma a atualização automática |
-| `p` | Abre o arquivo no Pencil (`launch.pen_app`) |
-| `o` | Abre o `.pen` como texto (`cx:open`, origem `link`, que a rota ignora) |
+| `p` | Abre no app padrão do sistema (Pencil) |
+| `o` | Abre o `.pen` como texto (`cx:open`; origem `link`, que a rota ignora) |
 | `y` | Copia o id do layer selecionado |
-| `e`, `f` | Fase 2: editar texto / cor (Ao vivo) |
 
-Cliques: itens da lista de layers (`select`/`activate`), badges de ação (Recarregar, Abrir no Pencil). Clique na imagem abre o visualizador com zoom do Tern.
+Cliques: itens da lista de layers (`select`/`activate`); badges Renderizar e Abrir no Pencil nos cards de problema. Clique na imagem abre o visualizador do Tern.
 
-### Rota e comandos (window)
+### Rota (window)
 
-- `tern.route.open`: assume quando o interruptor (`tern.kv` `route_pen`, ausente = ligado) está ligado, `how == "default"`, sem `line`, origem `files`, `palette` ou `cli`, e o caminho termina em `.pen` (qualquer caixa). Decisão: `{ block = "pencil-preview.preview", args = { req.path } }`. `cli` está incluído para que `tern open --split right design.pen` funcione para agentes.
-- Comando "Toggle Pencil Preview for .pen opens".
-- Comando "Pencil: preview the document open in Pencil": chamada MCP avulsa `get_app_state` → `mcp.active_document` → `cx:new_block("pencil-preview.preview", { path })`; sem app ou sem documento → toast explicando.
+`tern.route.open` assume a abertura quando: o interruptor está ligado (`tern.kv` `route_pen`; ausente = ligado), `how == "default"`, não há `line`, a origem é `files`, `palette` ou `cli`, e o caminho termina em `.pen` (qualquer caixa). Decisão: `{ block = "pencil-preview.preview", args = { req.path } }`. A origem `cli` entra para `tern open --split right design.pen` funcionar para agentes. Comando "Toggle Pencil Preview for .pen opens".
 
-### Erros
+### Problemas mostrados
 
-| Situação | Comportamento |
+| Situação | Card |
 | --- | --- |
-| Sem argumento de arquivo | Card explicando como abrir |
-| Arquivo inexistente / ilegível / > 16 MiB | Card de erro com Recarregar |
-| JSON inválido no `.pen` | Card de erro com a mensagem do decodificador |
-| Sem frames de topo | Card "documento sem frames" |
-| `pen` CLI não encontrado e app fechado | Card com instrução `npm i -g @pen.dev/cli` e as variáveis de override |
-| `pen` não autenticado / export sem PNG (doc avisa que pode sair 0 sem gerar) | Card com stderr resumido e `pen login`; o PNG é sempre verificado com `tern.fs.exists` |
-| Timeout | Card com Recarregar; o polling continua |
-| Falha transitória com imagem anterior na tela | Mantém a imagem, mostra aviso no dock |
+| Sem arquivo | Como abrir |
+| Ilegível, inexistente, > 16 MiB | Erro de leitura, com Renderizar |
+| pen CLI não encontrado | `npm i -g @pen.dev/cli` e `TERN_PENCIL_CLI` |
+| Processo não sobe | Mensagem do `tern.process.run` |
+| Sem linha de resumo / sem PNG | Resumo do stderr/stdout; lembrete de `pen login` |
+| Timeout | Aviso; a atualização continua |
+| Documento sem frames | "Nenhum frame no topo" |
 
-### Overrides (variáveis de ambiente do daemon)
+### Override
 
-`TERN_PENCIL_CLI` (caminho do `pen`/`pen.cmd` ou do `index.mjs`), `TERN_PENCIL_MCP` (binário do servidor MCP), `TERN_PENCIL_APP` (executável do app).
-
-Padrões: Windows — CLI pelo `pen.cmd` no `PATH` traduzido para `node <dir>/node_modules/@pen.dev/cli/dist/index.mjs`; MCP e app em `%LOCALAPPDATA%\Programs\Pen\…`. macOS (não verificado) — `pen`; `/Applications/Pen.app/Contents/Resources/app.asar.unpacked/out/mcp-server-darwin-<arch>`; app via `open -a Pen`. Linux (não verificado) — `pen`; sem MCP padrão; `xdg-open`.
+`TERN_PENCIL_CLI`: caminho do `pen`/`pen.cmd`/`pen.exe` ou do `index.mjs`. Um `.mjs`/`.js` vira `{ "node", path }` e um `.cmd` vira `{ "node", <dir>/node_modules/@pen.dev/cli/dist/index.mjs }`. O resto é usado como está.
 
 ## Testes
 
-- **Unidade** (`luau tests/run.luau`): `doc` (resumo real gerado do fixture `tests/fixtures/sample.pen`, agrupamento por frame, frame `fit_content` com tamanho resolvido, linha ausente, JSON inválido, documento sem frames), `mcp` (stdin gerado, respostas fora de ordem, `not_open`, stdout vazio, `active_document` com caminho `/C:/…`), `script` (escaping de aspas/barras/quebras de linha), `launch` (Windows com `pen.cmd` no PATH, override por env, nada encontrado) com stub de `tern.fs.exists`/`tern.getenv`/`tern.runtime`.
-- **Contrato do snippet** (script descartável, não versionado): rodar `script.refresh` gerado pelo Luau no `pen interactive` headless contra o fixture e no app pelo MCP, e conferir PNG + linha de resumo.
-- **Tipos**: `luau-analyze` com `tern.d.luau` gerado por `tern plugin types`.
-- **Smoke real** (obrigatório antes de publicar): `tern plugin link .`; `tern open` num `.pen` → o block mostra a imagem (`tern ctl tree "[data-surface='plugin.pencil-preview.preview']"`); abrir o mesmo arquivo no Pencil, aplicar `Update` pelo MCP e ver o modo mudar para Ao vivo e a imagem atualizar sem salvar; fechar o app e ver o modo Arquivo.
+- **Unidade** (`luau tests/run.luau`): `script` (escaping de aspas, barras e quebras de linha; `session` monta as linhas certas; `refresh` traz `want` e `dir` escapados), `doc` (stdout real do headless em `tests/fixtures/sample.stdout.txt`: dois frames, `fit_content` resolvido, agrupamento e profundidade; saída no formato do modo app `{"message": …}`; sem linha; JSON inválido; documento vazio; versão desconhecida), `launch` (Windows com `pen.cmd` no PATH, override `.mjs`/`.cmd`/outro, nada encontrado, Linux/macOS) com stub de `tern.fs.exists`, `tern.getenv` e `tern.runtime`.
+- **Contrato do snippet** (script descartável, fora do repositório): o `refresh` gerado pelo Luau rodando no `pen interactive` headless contra `tests/fixtures/sample.pen`, conferindo o PNG e a linha de resumo.
+- **Tipos**: `luau-analyze` com o `tern.d.luau` de `tern plugin types`.
+- **Smoke real** (antes de publicar): `tern plugin link .`; `tern open --split right tests/fixtures/sample.pen` → o block mostra a imagem (`tern ctl tree "[data-surface='plugin.pencil-preview.preview']"`); mudar o fixture no disco → imagem atualiza; `]` troca de frame; `l` mostra layers.
 
 ## Publicação
 
-Repositório público `SamuelFontess/tern-pencil-preview` (MIT), README em inglês com instalação `tern plugin install github.com/SamuelFontess/tern-pencil-preview`, requisitos e limites. Entrada no awesome-tern pela seção **Blocks**, editando `list.yml` conforme o `CONTRIBUTING.md` deles, via PR.
+Repositório público `SamuelFontess/tern-pencil-preview` (MIT), README em inglês com instalação `tern plugin install github.com/SamuelFontess/tern-pencil-preview`, requisitos e limites. Entrada no awesome-tern na seção **Blocks**, editando `list.yml` conforme o `CONTRIBUTING.md` deles, por PR.
