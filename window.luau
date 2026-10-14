@@ -31,11 +31,20 @@ tern.route.open(function(req: OpenRequest, _cx: WindowCx): RouteDecision?
 	if not enabled() then
 		return nil
 	end
-	-- Only a plain open: a placement or a line to reveal asks for the editor.
-	if req.how ~= "default" or req.line ~= nil then
+	-- A line to reveal asks for the editor.
+	if req.line ~= nil then
 		return nil
 	end
-	if req.origin ~= "files" and req.origin ~= "palette" and req.origin ~= "cli" then
+	-- From the Files pane and the palette only a plain open counts (a
+	-- placement asks for the editor). `tern open` is claimed whatever its
+	-- placement: the CLI picks one (e.g. "beside") for every file.
+	if req.origin == "cli" then
+		-- any placement
+	elseif req.origin == "files" or req.origin == "palette" then
+		if req.how ~= "default" then
+			return nil
+		end
+	else
 		return nil
 	end
 	if string.lower(string.sub(req.path, -4)) ~= ".pen" then
