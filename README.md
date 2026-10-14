@@ -41,7 +41,7 @@ Routing details: from the Files pane and the palette only a plain open is routed
 | `Up` / `k` | Previous layer (panel open) |
 | `Down` / `j` | Next layer (panel open) |
 | `y` | Copy the selected layer id |
-| `r` | Render again |
+| `r` | Render again (queued if a render is running) |
 | `Space` | Pause or resume watching the file |
 | `p` | Open the file in the system app |
 | `o` | Open the file in the editor |
@@ -50,7 +50,7 @@ Keys with Ctrl, Alt or Meta are not handled by the block. Clicking a layer in th
 
 ## How it works
 
-The block polls the file every 2 s. When the content or the chosen frame changes, it runs `pen interactive` headless with a snippet that walks the document and exports the selected frame (scale up to 2, at most 4096 px a side) into the plugin data folder. The `.pen` file is never written. Each render takes a few seconds because of the headless start-up.
+The block polls the file every 2 s. When the content or the chosen frame changes, it runs `pen interactive` headless with a snippet that walks the document and exports the selected frame (scale up to 2, at most 4096 px a side) into the plugin data folder. The `.pen` file is never written. Each render takes a few seconds because of the headless start-up. Closing the block removes its exported images and scratch file.
 
 ## Configuration
 
@@ -58,8 +58,8 @@ The block polls the file every 2 s. When the content or the chosen frame changes
 
 ## Errors
 
-- With no image yet, a failure shows as a card with the tail of the CLI output and Render / Open in Pencil buttons. With an image already shown, the image stays and a notice appears in the dock instead.
-- A failed render is not retried until the file or the frame changes, or you press `r`.
+- With no image yet, a failure shows as a card with the tail of the CLI output and Render / Open in Pencil buttons; the card shows "Rendering …" while a render runs. With an image already shown, the image stays and a notice appears in the dock; an error toast also appears when the notice first appears.
+- A failed render is not retried until the file or the frame changes, or you press `r`. Pressing `r` while a render runs queues another render, also while paused.
 - A timeout (60 s) is retried on the next poll.
 - The render-failure card suggests running `pen login`.
 - The missing-CLI card names `TERN_PENCIL_CLI`.

@@ -21,4 +21,5 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   CLI's `index.mjs`.
 - Problem cards or dock notices for a missing CLI, failed or timed-out renders
   and unreadable files.
+- Dock notice with an error toast when a render fails while an image is shown.
 - Local gate (`scripts/gate.py`): type check plus unit tests.
