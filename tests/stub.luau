@@ -269,7 +269,8 @@ end
 export type Opts = {
 	os: string?,
 	env: { [string]: string }?,
-	files: { [string]: boolean }?,
+	files: { [string]: boolean | string }?,
+	data: string?,
 }
 
 -- The Luau CLI freezes _G and gives every module its own globals table, so a stub cannot be
@@ -304,17 +305,98 @@ end
 
 function M.install(opts: Opts): any
 	local env = opts.env or {}
-	local files = opts.files or {}
+	local function norm(p: string): string
+		return ((p:gsub("\\", "/"):gsub("/+$", "")))
+	end
+	local function parent(p: string): string
+		return p:match("^(.*)/[^/]*$") or ""
+	end
+	local files: { [string]: string } = {}
+	local dirs: { [string]: boolean } = {}
+	local function addDir(p: string)
+		while p ~= "" and not dirs[p] do
+			dirs[p] = true
+			p = parent(p)
+		end
+	end
+	for p, v in opts.files or {} do
+		local n = norm(p)
+		files[n] = if typeof(v) == "string" then v else ""
+		addDir(parent(n))
+	end
+	local fs = {
+		exists = function(path: string): boolean
+			local n = norm(path)
+			return files[n] ~= nil or dirs[n] == true
+		end,
+		read = function(path: string, max_bytes: number?): string
+			local c = files[norm(path)]
+			if c == nil then
+				error("not found: " .. path, 2)
+			end
+			if max_bytes and #c > max_bytes then
+				error("too large: " .. path, 2)
+			end
+			return c
+		end,
+		write = function(path: string, text: string)
+			local n = norm(path)
+			if not dirs[parent(n)] then
+				error("no such directory: " .. parent(n), 2)
+			end
+			files[n] = text
+		end,
+		mkdir = function(path: string)
+			addDir(norm(path))
+		end,
+		list = function(path: string): { string }
+			local n = norm(path)
+			if not dirs[n] then
+				error("not a directory: " .. path, 2)
+			end
+			local seen: { [string]: boolean } = {}
+			local out: { string } = {}
+			local function add(child: string)
+				if parent(child) == n then
+					local name = child:sub(#n + 2)
+					if not seen[name] then
+						seen[name] = true
+						table.insert(out, name)
+					end
+				end
+			end
+			for f in files do
+				add(f)
+			end
+			for d in dirs do
+				add(d)
+			end
+			table.sort(out)
+			return out
+		end,
+		remove = function(path: string)
+			local n = norm(path)
+			local prefix = n .. "/"
+			files[n], dirs[n] = nil, nil
+			for f in files do
+				if f:sub(1, #prefix) == prefix then
+					files[f] = nil
+				end
+			end
+			for d in dirs do
+				if d:sub(1, #prefix) == prefix then
+					dirs[d] = nil
+				end
+			end
+		end,
+	}
 	local tern = {
 		runtime = { os = opts.os or "windows", jit = false },
 		getenv = function(name: string): string?
 			return env[name]
 		end,
-		fs = {
-			exists = function(path: string): boolean
-				return files[path] == true
-			end,
-		},
+		plugin = { data = opts.data or "/data" },
+		fs = fs,
 		json = {
 			null = NULL,
 			encode = encode,

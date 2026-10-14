@@ -130,4 +130,34 @@ tests.has_layer_checks_the_frame = function(t)
 	t.eq(util.has_layer(nil, "x"), false)
 end
 
+local function pngHeader(w: number, h: number): string
+	return "\137PNG\r\n\26\n" .. string.pack(">I4", 13) .. "IHDR" .. string.pack(">I4I4", w, h) .. "\8\6\0\0\0"
+end
+
+local function jpegHeader(w: number, h: number): string
+	return "\255\216" -- SOI
+		.. "\255\224" .. string.pack(">I2", 16) .. string.rep("\0", 14) -- APP0
+		.. "\255\192" .. string.pack(">I2", 17) .. "\8" .. string.pack(">I2I2", h, w) .. string.rep("\0", 10) -- SOF0
+end
+
+tests.image_size_reads_png_and_jpeg = function(t)
+	t.eq({ util.image_size(pngHeader(4097, 568)) }, { 4097, 568, "image/png" })
+	t.eq({ util.image_size(jpegHeader(2880, 2744)) }, { 2880, 2744, "image/jpeg" })
+	t.eq(util.image_size("GIF89a" .. string.rep("\0", 30)), nil, "neither format")
+	t.eq(util.image_size(pngHeader(1, 1):sub(1, 20)), nil, "truncated PNG")
+	t.eq(util.image_size(jpegHeader(1, 1):sub(1, 22)), nil, "truncated JPEG")
+end
+
+tests.shrink_fits_a_real_oversize_export = function(t)
+	-- A real 3040 px frame with a 1 px stroke came out 4097 px wide at 1.347 and 4094 px at 1.346.
+	local cap = util.shrink(1.347, 4097, 4096) :: number
+	t.truthy(cap <= 1.346, "at most the scale seen to fit")
+	t.truthy(cap >= 1.345, "shrinks no more than needed")
+end
+
+tests.shrink_always_lowers_the_scale = function(t)
+	t.eq(util.shrink(2, 4097, 4096), 1.999, "an overshoot that rounds away still lowers the scale")
+	t.eq(util.shrink(0.001, 5000, 4096), nil, "no positive scale left")
+end
+
 return tests

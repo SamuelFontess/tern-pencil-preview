@@ -137,4 +137,38 @@ function util.safe_id(id: string): boolean
 	return id ~= "" and id:find("[/\\:%c]") == nil and id:find("..", 1, true) == nil
 end
 
+-- Width, height and MIME type of a PNG or JPEG, or nil when `bytes` is neither or is cut short.
+function util.image_size(bytes: string): (number?, number?, string?)
+	if #bytes >= 24 and bytes:sub(1, 8) == "\137PNG\r\n\26\n" and bytes:sub(13, 16) == "IHDR" then
+		local w, h = string.unpack(">I4I4", bytes, 17)
+		return w, h, "image/png"
+	end
+	if bytes:sub(1, 2) ~= "\255\216" then
+		return nil, nil, nil
+	end
+	local i = 3
+	while i + 8 <= #bytes do
+		if bytes:byte(i) ~= 0xFF then
+			return nil, nil, nil
+		end
+		local marker = bytes:byte(i + 1)
+		if marker == 0xFF then
+			i += 1 -- fill byte
+		elseif marker >= 0xC0 and marker <= 0xCF and marker ~= 0xC4 and marker ~= 0xC8 and marker ~= 0xCC then
+			local h, w = string.unpack(">I2I2", bytes, i + 5)
+			return w, h, "image/jpeg"
+		else
+			i += 2 + string.unpack(">I2", bytes, i + 2)
+		end
+	end
+	return nil, nil, nil
+end
+
+-- The scale (3 decimals, rounded down) at which an export that came out `side` px at `scale` fits
+-- `max_side`; always below `scale`, nil when no positive scale is left.
+function util.shrink(scale: number, side: number, max_side: number): number?
+	local fit = math.min(math.floor(scale * max_side / side * 1000), math.floor(scale * 1000 + 0.5) - 1) / 1000
+	return if fit > 0 then fit else nil
+end
+
 return util

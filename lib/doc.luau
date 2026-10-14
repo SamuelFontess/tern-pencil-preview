@@ -165,4 +165,56 @@ function doc.parse(line: string): (Summary?, string?)
 	return { frames = frames, exported = str(root.exported), scale = num(root.scale) }, nil
 end
 
+export type Top = { id: string, w: number, h: number, stroke: number, fill: boolean }
+
+-- Widest side of a `strokeWidth`: a number, or a table of per-side numbers.
+local function strokeOf(v: any): number
+	if typeof(v) == "number" then
+		return math.max(v, 0)
+	end
+	if typeof(v) ~= "table" then
+		return 0
+	end
+	local most = 0
+	for _, side in v :: { [any]: any } do
+		if typeof(side) == "number" and side > most then
+			most = side
+		end
+	end
+	return most
+end
+
+local function hasFill(v: any): boolean
+	if v == nil or v == false or v == "" then
+		return false
+	end
+	if typeof(v) == "table" then
+		return next(v) ~= nil
+	end
+	return true
+end
+
+-- Top-level frames of a `.pen` document with numeric sizes, in document order; empty when `content` is not
+-- one. Lets a batch export every frame before pen walks the layers.
+function doc.top_frames(content: string): { Top }
+	local out: { Top } = {}
+	local ok, decoded = pcall(tern.json.decode, content)
+	if not ok or typeof(decoded) ~= "table" then
+		return out
+	end
+	local children = (decoded :: any).children
+	if typeof(children) ~= "table" then
+		return out
+	end
+	for _, node in children :: { any } do
+		if typeof(node) == "table" and node.type == "frame" then
+			local id, w, h = str(node.id), num(node.width), num(node.height)
+			if id and w and h then
+				table.insert(out, { id = id, w = w, h = h, stroke = strokeOf(node.strokeWidth), fill = hasFill(node.fill) })
+			end
+		end
+	end
+	return out
+end
+
 return doc

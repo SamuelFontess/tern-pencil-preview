@@ -3,6 +3,29 @@
 All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0] - 2026-10-14
+
+### Changed
+
+- One `pen` run per file version exports every top-level frame, the selected
+  one first, as JPEG (PNG for frames without a background) into a render cache
+  in the plugin data folder; switching frames reads the cache and starts no
+  process. A 17-frame file renders in about 7 s.
+- The cache survives block, plugin and Tern restarts. It keeps the 2 latest
+  versions of each file and at most 200 MB.
+- A changed file renders once it holds still for one poll (2 s).
+- Batch renders time out after 120 s.
+- Frames without a fixed size and other top-level nodes render one per run when
+  selected.
+
+### Fixed
+
+- Switching frames no longer shows the previous frame's image under the new
+  frame's name.
+- Frames with a stroke no longer export past 4096 px a side; one that still
+  does is exported again at a lower scale.
+- Export folders of closed blocks no longer stay in the plugin data folder.
+
 ## [0.1.0] - 2026-10-14
 
 ### Added

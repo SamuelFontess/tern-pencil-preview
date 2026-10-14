@@ -130,4 +130,27 @@ tests.decode_errors = function(t)
 	end
 end
 
+tests.fs_in_memory = function(t)
+	local tern = stub.install({ files = { ["/d/a.txt"] = "A", ["C:\\x\\y.bin"] = true }, data = "/pd" })
+	t.eq(tern.plugin.data, "/pd")
+	t.eq(tern.fs.read("/d/a.txt"), "A")
+	t.eq(tern.fs.read("C:/x/y.bin"), "", "true means an empty file; both separators work")
+	t.raises(function()
+		tern.fs.read("/d/a.txt", 0)
+	end, "too large")
+	t.raises(function()
+		tern.fs.write("/nope/f", "x")
+	end)
+	tern.fs.mkdir("/d/sub/deep")
+	tern.fs.write("/d/sub/deep/f", "F")
+	t.eq(tern.fs.list("/d"), { "a.txt", "sub" })
+	t.eq(tern.fs.exists("/d/sub"), true)
+	tern.fs.remove("/d/sub")
+	t.eq(tern.fs.exists("/d/sub/deep/f"), false)
+	t.eq(tern.fs.list("/d"), { "a.txt" })
+	t.raises(function()
+		tern.fs.list("/missing")
+	end)
+end
+
 return tests

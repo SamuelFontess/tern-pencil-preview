@@ -18,20 +18,27 @@ export type State = {
 	cx: BlockCx,
 	path: string?,
 	name: string,
-	exports: string?, -- export dir of this file under the plugin's data dir
+	file_dir: string?, -- this file's folder in the render cache
 	scratch: string?, -- the `-o` file of `pen interactive`, never saved
 	frames: { Frame },
 	frame_id: string?,
 	layer: string?,
 	panel: boolean,
+	version: string?, -- cache version of the content shown
+	dir: string?, -- cache folder the images come from
+	blobs: { [string]: string }, -- frame id → blob id, for `dir`
+	fallback: boolean, -- `dir` is filled one frame per run (the reserve path)
+	failed: string?, -- frame whose reserve render failed for this content; `r` clears it
 	blob: string?,
-	png: string?,
+	shown: string?, -- frame id of `blob`
 	busy: boolean,
 	paused: boolean,
 	stopped: boolean,
 	force: boolean, -- `r` asked for a render that has not started yet
-	disk: string?,
-	rendered: string?,
+	disk: string?, -- content of the version shown or last tried
+	pending: string?, -- a new content seen once; it renders when the next tick sees it again
+	caps: { [string]: number }, -- highest scale per frame id, after an export came out over the size limit
+	shrinks: number, -- reserve renders in a row redone at a lower scale
 	problem: Problem?,
 	notice: Problem?,
 	updated_at: string?,
@@ -205,7 +212,16 @@ local function mainView(state: State, cx: BlockCx): Node
 		props.w = frame.w
 		props.h = frame.h
 	end
-	local children: { Node } = { ui.node("image", props) }
+	local image: Node
+	if state.shown == state.frame_id then
+		image = ui.node("image", props)
+	else
+		-- The blob is another frame's image: never show it under this frame's name.
+		local name = if frame then frame.name else state.name
+		local label = if state.busy then "Rendering " .. name .. "…" else name .. ": waiting to render"
+		image = set(ui.progress(nil, label), { key = "image", grow = 1 })
+	end
+	local children: { Node } = { image }
 	if state.panel and frame then
 		table.insert(children, panelView(state, frame, cx))
 	end

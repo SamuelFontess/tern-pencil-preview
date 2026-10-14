@@ -2,6 +2,12 @@
 
 Previews pen.dev (Pencil) `.pen` designs in a native Tern block: the selected top-level frame (switch with Left/Right) as an image, its layers and an inspector, re-rendered when the file changes.
 
+![Pencil Preview showing a phone frame with its layer list and inspector](docs/layers.png)
+
+<img src="docs/preview.png" alt="Pencil Preview showing a phone frame and the dock" width="400">
+
+The example design is [`tests/fixtures/sample.pen`](tests/fixtures/sample.pen).
+
 ## Requirements
 
 - Tern with plugin support (built against 0.8.3).
@@ -50,7 +56,7 @@ Keys with Ctrl, Alt or Meta are not handled by the block. Clicking a layer in th
 
 ## How it works
 
-The block polls the file every 2 s. When the content or the chosen frame changes, it runs `pen interactive` headless with a snippet that walks the document and exports the selected frame (scale up to 2, at most 4096 px a side) into the plugin data folder. The `.pen` file is never written. Each render takes a few seconds because of the headless start-up. Closing the block removes its exported images and scratch file.
+When the file changes and then holds still for one poll (2 s), the block runs `pen interactive` headless once: it exports every top-level frame (the selected one first) as JPEG, or PNG for a frame without a background, at a scale up to 2 that keeps each image within 4096 px a side, then reads the layers. The images go to a render cache in the plugin data folder, so switching frames and reopening the file need no new run. The cache keeps the 2 latest versions of each file and at most 200 MB in all. The `.pen` file is never written. When the block cannot read the file's frames itself, it falls back to rendering one frame per run. Top-level frames without a fixed size, and frames the batch could not fit within 4096 px, are rendered one per run when selected, into the same cache.
 
 ## Configuration
 
@@ -60,7 +66,7 @@ The block polls the file every 2 s. When the content or the chosen frame changes
 
 - With no image yet, a failure shows as a card with the tail of the CLI output and Render / Open in Pencil buttons; the card shows "Rendering …" while a render runs. With an image already shown, the image stays and a notice appears in the dock; an error toast also appears when the notice first appears.
 - A failed render is not retried until the file or the frame changes, or you press `r`. Pressing `r` while a render runs queues another render, also while paused.
-- A timeout (60 s) is retried on the next poll.
+- A batch that takes longer than 120 s (60 s for a single frame) is tried again when the file changes or when you press `r`.
 - The render-failure card suggests running `pen login`.
 - The missing-CLI card names `TERN_PENCIL_CLI`.
 
@@ -83,7 +89,7 @@ The gate type-checks every non-test `.luau` file with `luau-lsp` and runs `luau 
 Layout:
 
 - `plugin.toml`, `host.luau` (the `preview` block), `window.luau` (open routing and the toggle command).
-- `lib/`: `doc.luau` (parses the render summary), `launch.luau` (finds the pen CLI and the OS opener), `script.luau` (builds the snippet sent to `pen interactive`), `util.luau` (paths and frame/layer helpers), `view.luau` (block view).
+- `lib/`: `doc.luau` (reads the `.pen` top-level frames and parses the render summary), `launch.luau` (finds the pen CLI and the OS opener), `script.luau` (builds the snippets sent to `pen interactive`), `cache.luau` (render cache keys and cleanup rules), `store.luau` (render cache on disk), `util.luau` (paths, image sizes and frame/layer helpers), `view.luau` (block view).
 - `tests/`: `*_test.luau` unit tests registered in `run.luau`, the `tern` stub in `stub.luau`, and `fixtures/`.
 
 ## License

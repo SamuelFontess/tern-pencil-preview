@@ -177,4 +177,28 @@ tests.layers_missing_id_or_type_ignored_and_orphans_dropped = function(t)
 	t.eq(summary.frames[1].layers[1].reusable, true)
 end
 
+local PEN = [[{"version":"2.19","children":[
+{"type":"frame","id":"A","width":3040,"height":420,"fill":"#fff","stroke":"#e5e5e5","strokeWidth":1},
+{"type":"rectangle","id":"R","width":10,"height":10},
+{"type":"frame","id":"B","width":1440,"height":900},
+{"type":"frame","id":"C","width":"fill_container","height":10,"fill":"#000"},
+{"type":"frame","id":"D","width":100,"height":50,"fill":[],"strokeWidth":{"top":2,"left":4}}
+]}]]
+
+tests.top_frames_reads_frames_in_order = function(t)
+	stub.install({})
+	t.eq(doc.top_frames(PEN), {
+		{ id = "A", w = 3040, h = 420, stroke = 1, fill = true },
+		{ id = "B", w = 1440, h = 900, stroke = 0, fill = false },
+		{ id = "D", w = 100, h = 50, stroke = 4, fill = false },
+	})
+end
+
+tests.top_frames_of_other_text_is_empty = function(t)
+	stub.install({})
+	t.eq(doc.top_frames("not json"), {})
+	t.eq(doc.top_frames('{"version":"2.19"}'), {})
+	t.eq(doc.top_frames("[1,2]"), {})
+end
+
 return tests
