@@ -66,7 +66,7 @@
 
 ### Task 8: Docs e publicação
 - [x] `README.md` (inglês), `LICENSE` (MIT), `CHANGELOG.md`.
-- [ ] Repo público, push, `tern plugin install github.com/SamuelFontess/tern-pencil-preview`.
-- [ ] PR no awesome-tern (`list.yml`, Blocks).
+- [x] Repo público, push, `tern plugin install github.com/SamuelFontess/tern-pencil-preview` (instalado do GitHub: ready).
+- [x] PR no awesome-tern (`list.yml`, Blocks): theblazehen/awesome-tern#30.
 
 Incrementos 2 (ao vivo, com a proteção de documento ativo) e 3 (edição leve) ganham planos próprios depois do smoke do incremento 1.
