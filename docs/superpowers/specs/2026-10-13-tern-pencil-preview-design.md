@@ -156,7 +156,7 @@ Cliques: itens da lista de layers (`select`/`activate`); badges Renderizar e Abr
 
 ### Rota (window)
 
-`tern.route.open` assume a abertura quando: o interruptor está ligado (`tern.kv` `route_pen`; ausente = ligado), `how == "default"`, não há `line`, a origem é `files`, `palette` ou `cli`, e o caminho termina em `.pen` (qualquer caixa). Decisão: `{ block = "pencil-preview.preview", args = { req.path } }`. A origem `cli` entra para `tern open --split right design.pen` funcionar para agentes. Comando "Toggle Pencil Preview for .pen opens".
+`tern.route.open` assume a abertura quando: o interruptor está ligado (`tern.kv` `route_pen`; ausente = ligado), não há `line`, o caminho termina em `.pen` (qualquer caixa), e a origem é `files` ou `palette` com `how == "default"`, **ou** a origem é `cli` com qualquer `how` (o `tern open` sem flags chega com `how = "beside"`, observado em 2026-10-14). Decisão: `{ block = "pencil-preview.preview", args = { req.path } }`; o block abre ao lado (o `how` da decisão só vale para caminhos reescritos). Assim `tern open design.pen` funciona para agentes. Comando "Toggle Pencil Preview for .pen opens".
 
 ### Problemas mostrados
 

@@ -85,6 +85,11 @@ tests.safe_id_rejects_path_tricks = function(t)
 	t.eq(util.safe_id("a\0b"), false)
 end
 
+tests.tail_drops_a_split_character_at_the_slice_start = function(t)
+	-- 17 bytes, max*8 = 16: the slice starts on é's second byte and the escapes strip to nothing.
+	t.eq(util.tail("é" .. string.rep("\27[00m", 3), 2), "")
+end
+
 tests.neighbour_steps_without_wrapping = function(t)
 	local f = frames("a", "b", "c")
 	t.eq(util.neighbour(f, "a", 1), "b")
