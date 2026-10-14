@@ -29,6 +29,7 @@ export type State = {
 	busy: boolean,
 	paused: boolean,
 	stopped: boolean,
+	force: boolean, -- `r` asked for a render that has not started yet
 	disk: string?,
 	rendered: string?,
 	problem: Problem?,
@@ -45,6 +46,7 @@ local MARKDOWN_KINDS: { [string]: boolean } = { nofile = true, nocli = true }
 
 -- Characters of a notice shown in the dock.
 local NOTICE_MAX = 120
+-- Characters of a text layer's content shown in the inspector.
 local CONTENT_MAX = 200
 
 local function set(node: Node, props: { [string]: any }): Node
@@ -89,6 +91,9 @@ local function problemView(state: State, problem: Problem): Node
 	local detail = problem.detail
 	if detail then
 		table.insert(children, ui.code(detail))
+	end
+	if state.busy then
+		table.insert(children, ui.progress(nil, "Rendering " .. state.name .. "…"))
 	end
 	if state.path then
 		table.insert(children, ui.row({ button("Render", "render", "accent"), button("Open in Pencil", "open", "neutral") }))

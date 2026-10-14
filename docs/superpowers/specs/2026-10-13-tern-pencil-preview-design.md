@@ -119,9 +119,12 @@ type State = {
   panel: boolean,                         -- painel de layers visível
   blob: string?, png: string?,            -- blob atual e os bytes que o geraram
   busy: boolean, paused: boolean, stopped: boolean,
+  force: boolean,                         -- `r` pediu uma renderização que ainda não começou
   disk: string?,                          -- conteúdo do .pen da última renderização
   rendered: string?,                      -- frame exportado na última renderização
-  problem: Problem?, notice: string?, updated_at: string?,
+  problem: Problem?,                      -- card de problema (sem imagem na tela)
+  notice: Problem?,                       -- mesmo formato de `problem`; aviso no dock com imagem na tela
+  updated_at: string?,
 }
 ```
 

@@ -64,6 +64,27 @@ tests.tail_starts_on_a_utf8_boundary = function(t)
 	t.truthy(utf8.len(util.tail("ééé", 3)) ~= nil)
 end
 
+tests.tail_of_long_output_with_a_cut_escape = function(t)
+	-- 11 bytes per unit, so the 80-byte slice starts inside an escape sequence.
+	local long = string.rep("\27[31mab\27[0m", 5000) .. "done"
+	t.eq(util.tail(long, 10), "…abababdone")
+	t.eq(util.tail(long, 300):find("\27", 1, true), nil)
+	t.eq(util.tail(string.rep("é", 1000), 5), "…éé")
+end
+
+tests.safe_id_rejects_path_tricks = function(t)
+	t.eq(util.safe_id("abc12"), true)
+	t.eq(util.safe_id("Frame-1_x"), true)
+	t.eq(util.safe_id(""), false)
+	t.eq(util.safe_id("a/b"), false)
+	t.eq(util.safe_id("a\\b"), false)
+	t.eq(util.safe_id(".."), false)
+	t.eq(util.safe_id("a..b"), false)
+	t.eq(util.safe_id("C:x"), false)
+	t.eq(util.safe_id("a\nb"), false)
+	t.eq(util.safe_id("a\0b"), false)
+end
+
 tests.neighbour_steps_without_wrapping = function(t)
 	local f = frames("a", "b", "c")
 	t.eq(util.neighbour(f, "a", 1), "b")

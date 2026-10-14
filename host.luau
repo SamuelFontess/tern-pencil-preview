@@ -42,6 +42,18 @@ local function report(state: State, kind: string, title: string, text: string, d
 	end
 end
 
+-- Ends background work for a block whose pane is gone, and drops its export and scratch files.
+local function stop(state: State)
+	state.stopped = true
+	local exports, scratch = state.exports, state.scratch
+	if exports then
+		pcall(tern.fs.remove, exports)
+	end
+	if scratch then
+		pcall(tern.fs.remove, scratch)
+	end
+end
+
 -- After a failed render, the same content and frame are not tried again until one changes (or `r`).
 local function settle(state: State, content: string)
 	state.disk = content
@@ -73,6 +85,10 @@ local function succeed(state: State, content: string, want: string?, summary: do
 			title = "No top-level frames",
 			text = state.name .. " has no top-level frame to preview.",
 		}
+		return
+	end
+	if not util.safe_id(exported) then
+		failRender(state, content, "unexpected frame id", r)
 		return
 	end
 	local png = (state.exports :: string) .. "/" .. exported .. ".png"
@@ -112,14 +128,16 @@ local function check(state: State): boolean
 	local changed = false
 	local problem, notice = state.problem, state.notice
 	if problem and problem.kind == "read" then
-		state.problem, changed = nil, true
+		-- With no image, render again so the real outcome replaces the cleared card.
+		state.problem, state.disk, changed = nil, nil, true
 	end
 	if notice and notice.kind == "read" then
 		state.notice, changed = nil, true
 	end
-	if content == state.disk and state.rendered == state.frame_id then
+	if not state.force and content == state.disk and state.rendered == state.frame_id then
 		return changed
 	end
+	state.force = false
 	local cli = launch.pen_cli()
 	if cli == nil then
 		report(
@@ -159,7 +177,7 @@ local function check(state: State): boolean
 		tern.process.run(argv, opts, function(r: ProcessResult, _: WindowCx?)
 			state.busy = false
 			if not running(cx.pane) then
-				state.stopped = true
+				stop(state)
 				return
 			end
 			local again = false
@@ -180,7 +198,8 @@ local function check(state: State): boolean
 					failRender(state, content, why or "invalid summary", r)
 				end
 			end
-			if again then
+			-- So does a forced render (`r`) asked for while this one ran.
+			if again or state.force then
 				check(state)
 			end
 			cx:render()
@@ -200,7 +219,7 @@ local function schedule(state: State)
 	end
 	local cx = state.cx
 	if not running(cx.pane) then
-		state.stopped = true
+		stop(state)
 		return
 	end
 	local handle: TimerHandle? = nil
@@ -211,7 +230,7 @@ local function schedule(state: State)
 		end
 		state.timer = nil
 		if not running(cx.pane) then
-			state.stopped = true
+			stop(state)
 			return
 		end
 		if state.paused then
@@ -226,7 +245,8 @@ local function schedule(state: State)
 end
 
 local function forceRender(state: State)
-	state.disk = nil
+	-- Kept until a render starts, so `r` during a busy render runs after it.
+	state.force = true
 	check(state)
 end
 
@@ -274,6 +294,7 @@ local preview: BlockDef<State> = {
 			busy = false,
 			paused = false,
 			stopped = false,
+			force = false,
 			disk = nil,
 			rendered = nil,
 			problem = nil,
