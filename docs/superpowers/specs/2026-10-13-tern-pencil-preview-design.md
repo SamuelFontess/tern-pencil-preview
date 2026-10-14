@@ -130,9 +130,9 @@ type State = {
 ### Ciclo
 
 - Uma renderização por vez (`busy`). A cada 2 s (se não estiver pausado), um timer lê o `.pen` com `tern.fs.read(path, 16 MiB)` dentro de `pcall`. Se o conteúdo for igual a `disk` e `rendered == frame_id`, não faz nada. Senão renderiza.
-- Renderizar: `pen interactive -i <path> -o <data>/scratch/<chave>.pen` com stdin `script.session({ script.refresh(frame_id, <data>/exports/<chave>, 4096) })`, `timeout_ms = 60000`. Na volta: `doc.find_summary` + `doc.parse`; confere o PNG com `tern.fs.exists` (a doc avisa que um export pode falhar com exit 0); lê o PNG e só chama `cx:blob` se os bytes mudaram.
+- Renderizar: `pen interactive -i <path> -o <data>/scratch/<chave>-<pane>.pen` com stdin `script.session({ script.refresh(frame_id, <data>/exports/<chave>/<pane>, 4096) })`, `timeout_ms = 60000`. Antes, apaga e recria `<data>/exports/<chave>/<pane>`. Na volta: `doc.find_summary` + `doc.parse`; confere o PNG com `tern.fs.exists` (a doc avisa que um export pode falhar com exit 0); lê o PNG e só chama `cx:blob` se os bytes mudaram.
 - Trocar de frame renderiza o novo frame na hora.
-- `<chave>` = FNV-1a de 32 bits do caminho, em hexa.
+- `<chave>` = FNV-1a de 32 bits do caminho, em hexa; `<pane>` = `cx.pane`, para que dois panes do mesmo arquivo nunca apaguem a imagem um do outro.
 - Todo callback e timer confere `tern.pane.list()` e para quando o pane do block sumiu, como no exemplo `watch` da doc.
 - Erro com imagem anterior na tela: mantém a imagem e mostra o aviso no dock. Sem imagem: card de problema.
 

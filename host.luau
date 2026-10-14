@@ -27,10 +27,15 @@ local function running(pane: number): boolean
 	return false
 end
 
--- Records an error: a problem card when no image is shown, else a notice in the dock over the image.
+-- Records an error: a problem card when no image is shown, else a notice in the dock over the image (with a
+-- toast when the notice first appears).
 local function report(state: State, kind: string, title: string, text: string, detail: string?)
 	local problem: view.Problem = { kind = kind, title = title, text = text, detail = detail }
 	if state.blob then
+		if state.notice == nil then
+			-- ToastLevel has no "warning"; the notice reports a failure.
+			state.cx:toast("error", problem.title, problem.detail or problem.text)
+		end
 		state.notice = problem
 	else
 		state.problem = problem
@@ -198,7 +203,12 @@ local function schedule(state: State)
 		state.stopped = true
 		return
 	end
-	state.timer = tern.timer(EVERY_MS, function()
+	local handle: TimerHandle? = nil
+	handle = tern.timer(EVERY_MS, function()
+		-- A timer cancelled by a pause may still fire; only the current one ticks.
+		if state.timer ~= handle then
+			return
+		end
 		state.timer = nil
 		if not running(cx.pane) then
 			state.stopped = true
@@ -212,6 +222,7 @@ local function schedule(state: State)
 		end
 		schedule(state)
 	end)
+	state.timer = handle
 end
 
 local function forceRender(state: State)
@@ -293,8 +304,9 @@ local preview: BlockDef<State> = {
 			return state
 		end
 		local key = util.key(path)
-		state.exports = tern.plugin.data .. "/exports/" .. key
-		state.scratch = tern.plugin.data .. "/scratch/" .. key .. ".pen"
+		-- Per pane: a render empties its export dir, which must never hold another pane's image.
+		state.exports = tern.plugin.data .. "/exports/" .. key .. "/" .. tostring(cx.pane)
+		state.scratch = tern.plugin.data .. "/scratch/" .. key .. "-" .. tostring(cx.pane) .. ".pen"
 		-- The first render runs even when paused, so a restored block shows its design.
 		check(state)
 		schedule(state)
