@@ -19,6 +19,6 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the preview, plus the command "Toggle Pencil Preview for .pen opens".
 - `TERN_PENCIL_CLI` to point the plugin at `pen`, `pen.cmd`, `pen.exe` or the
   CLI's `index.mjs`.
-- Problem cards for a missing CLI, failed or timed-out renders and unreadable
-  files.
+- Problem cards or dock notices for a missing CLI, failed or timed-out renders
+  and unreadable files.
 - Local gate (`scripts/gate.py`): type check plus unit tests.

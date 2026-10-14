@@ -1,11 +1,11 @@
 # tern-pencil-preview
 
-Previews pen.dev (Pencil) `.pen` designs in a native Tern block: each top-level frame as an image, its layers and an inspector, re-rendered when the file changes.
+Previews pen.dev (Pencil) `.pen` designs in a native Tern block: the selected top-level frame (switch with Left/Right) as an image, its layers and an inspector, re-rendered when the file changes.
 
 ## Requirements
 
 - Tern with plugin support (built against 0.8.3).
-- The pen.dev CLI (`npm install -g @pen.dev/cli`, Node 22.19+), signed in with `pen login`. Exports require an authenticated CLI.
+- The pen.dev CLI (`npm install -g @pen.dev/cli`; the pen.dev CLI requires Node 22.19 or later), signed in with `pen login`. Exports require an authenticated CLI.
 
 Verified on Windows. On macOS and Linux the plugin runs `pen` from `PATH`; this is not verified yet.
 
@@ -29,6 +29,8 @@ tern plugin link <dir>
 
 The command "Toggle Pencil Preview for .pen opens" switches the routing. When it is off, the Files pane, the palette and `tern open` use the editor; "Open with" still works. The setting is shared by all windows.
 
+Routing details: from the Files pane and the palette only a plain open is routed to the preview (an open with a placement goes to the editor); `tern open` is routed with any placement. Any open that asks for a line goes to the editor.
+
 ### Keys
 
 | Key | Action |
@@ -44,7 +46,7 @@ The command "Toggle Pencil Preview for .pen opens" switches the routing. When it
 | `p` | Open the file in the system app |
 | `o` | Open the file in the editor |
 
-Keys with Ctrl, Alt or Meta are not handled by the block.
+Keys with Ctrl, Alt or Meta are not handled by the block. Clicking a layer in the list selects it. The chosen frame, selected layer, panel and pause state are restored when the block restarts.
 
 ## How it works
 
@@ -54,11 +56,20 @@ The block polls the file every 2 s. When the content or the chosen frame changes
 
 `TERN_PENCIL_CLI`: path to `pen`, `pen.cmd`, `pen.exe` or the CLI's `index.mjs`. Needed when Tern was started without the npm global bin directory on `PATH`.
 
+## Errors
+
+- With no image yet, a failure shows as a card with the tail of the CLI output and Render / Open in Pencil buttons. With an image already shown, the image stays and a notice appears in the dock instead.
+- A failed render is not retried until the file or the frame changes, or you press `r`.
+- A timeout (60 s) is retried on the next poll.
+- The render-failure card suggests running `pen login`.
+- The missing-CLI card names `TERN_PENCIL_CLI`.
+
 ## Limitations
 
-- Shows the saved file, not unsaved edits in the Pencil app (a live mode is planned).
+- Shows the saved file, not unsaved edits in the Pencil app.
 - Top-level frames only.
 - The layer tree is read to depth 6.
+- `.pen` files over 16 MiB are refused.
 - No editing.
 
 ## Development
