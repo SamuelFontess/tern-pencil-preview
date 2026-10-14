@@ -36,35 +36,36 @@
 ---
 
 ### Task 1: Runner e stub
-- [ ] `tests/stub.luau`: `stub.install({os?, env?, files?})` define o global `tern` com `json.encode/decode` (só para testes), `fs.exists`, `getenv` e `runtime.os`.
-- [ ] `tests/run.luau`: roda uma lista fixa de `*_test.luau`, cada um exportando `{ [name] = fn }`; `expect_eq` e `expect_match`; sai com código 1 se algo falhar.
-- [ ] `luau tests/run.luau` → "0 passed, 0 failed". Commit.
+- [x] `tests/stub.luau`: `stub.install({os?, env?, files?})` define o global `tern` com `json.encode/decode` (só para testes), `fs.exists`, `getenv` e `runtime.os`.
+- [x] `tests/run.luau`: roda uma lista fixa de `*_test.luau`, cada um exportando `{ [name] = fn }`; `expect_eq` e `expect_match`; sai com código 1 se algo falhar.
+- [x] `luau tests/run.luau` → "0 passed, 0 failed". Commit.
 
 ### Task 2: `lib/script.luau`
-- [ ] Testes: `js_string('a"b\\c\nd')` → `"a\"b\\c\nd"` (JSON); `session({"X"})` → `execute({ input: "X" })\nexit()\n`; `refresh(nil, "C:/x y", 4096)` contém `want=null`, `"C:/x y"` e `Export(`; `refresh('a"b', …)` contém `"a\"b"`.
-- [ ] Implementar o snippet do spec. Contrato descartável: executar o snippet gerado contra `tests/fixtures/sample.pen` no headless; gravar o stdout em `tests/fixtures/sample.stdout.txt`. Commit.
+- [x] Testes: `js_string('a"b\\c\nd')` → `"a\"b\\c\nd"` (JSON); `session({"X"})` → `execute({ input: "X" })\nexit()\n`; `refresh(nil, "C:/x y", 4096)` contém `want=null`, `"C:/x y"` e `Export(`; `refresh('a"b', …)` contém `"a\"b"`.
+- [x] Implementar o snippet do spec. Contrato descartável: executar o snippet gerado contra `tests/fixtures/sample.pen` no headless; gravar o stdout em `tests/fixtures/sample.stdout.txt`. Commit.
 
 ### Task 3: `lib/doc.luau`
-- [ ] Testes com `sample.stdout.txt`: 2 frames; `Login` 390×844 com layers `Title` (depth 1, content), `Card` (depth 1) e `Avatar` (depth 2, parent `Card`); `Auto` 60×67; `exported` = id de `Login` e `scale` = 2. Formato do app: linha dentro de `{"message": "…"}` → mesmo resultado. Sem linha → `nil`. JSON inválido → erro. `{"v":1,"layers":[],"exported":null}` → 0 frames. `{"v":2}` → erro `unsupported summary version`.
-- [ ] Implementar. Commit.
+- [x] Testes com `sample.stdout.txt`: 2 frames; `Login` 390×844 com layers `Title` (depth 1, content), `Card` (depth 1) e `Avatar` (depth 2, parent `Card`); `Auto` 60×67; `exported` = id de `Login` e `scale` = 2. Formato do app: linha dentro de `{"message": "…"}` → mesmo resultado. Sem linha → `nil`. JSON inválido → erro. `{"v":1,"layers":[],"exported":null}` → 0 frames. `{"v":2}` → erro `unsupported summary version`.
+- [x] Implementar. Commit.
 
 ### Task 4: `lib/launch.luau`
-- [ ] Testes: Windows com `PATH=C:\a;C:\npm`, `C:\npm\pen.cmd` e `C:\npm\node_modules\@pen.dev\cli\dist\index.mjs` existentes → argv `{"node", "C:\npm\node_modules\@pen.dev\cli\dist\index.mjs"}`; override `.mjs` → `{"node", p}`; override `.cmd` → node + index.mjs ao lado; override `pen.exe` → `{p}`; Windows sem nada → `nil`; Linux → `{"pen"}`; `opener` por SO.
-- [ ] Implementar. Commit.
+- [x] Testes: Windows com `PATH=C:\a;C:\npm`, `C:\npm\pen.cmd` e `C:\npm\node_modules\@pen.dev\cli\dist\index.mjs` existentes → argv `{"node", "C:\npm\node_modules\@pen.dev\cli\dist\index.mjs"}`; override `.mjs` → `{"node", p}`; override `.cmd` → node + index.mjs ao lado; override `pen.exe` → `{p}`; Windows sem nada → `nil`; Linux → `{"pen"}`; `opener` por SO.
+- [x] Implementar. Commit.
 
 ### Task 5: `plugin.toml`, `lib/view.luau`, `host.luau`
-- [ ] Manifesto; view (cards de problema, carregando, principal com imagem, layers e inspetor, dock); block com ciclo, liveness, teclas, eventos e save.
-- [ ] `tern plugin types .`; `luau-analyze` sem erros. Commit.
+- [x] Manifesto; view (cards de problema, carregando, principal com imagem, layers e inspetor, dock); block com ciclo, liveness, teclas, eventos e save.
+- [x] `tern plugin types .`; `luau-lsp analyze` sem erros. Commit.
 
 ### Task 6: `window.luau`
-- [ ] Rota e interruptor. `luau-analyze`. Commit.
+- [x] Rota e interruptor. `luau-lsp analyze`. Commit.
 
 ### Task 7: Smoke real
-- [ ] `tern plugin link`; `tern plugin list` → ready.
-- [ ] `tern open --split right tests/fixtures/sample.pen` → `tern ctl tree` mostra `sf-image`; mudar uma cópia do fixture no disco → imagem atualiza; `]` → frame `Auto`; `l` → layers.
+- [x] `tern plugin link`; `tern plugin list` → ready.
+- [x] `tern open sample.pen` (cópia) → block `pencil-preview.preview` aberto, PNG 780×1688 exportado; mudar a cópia no disco → re-render em ~4 s; fechar o block → pasta do pane e scratch removidos.
+- [ ] Visual e teclas (`]` → frame `Auto`; `l` → layers): sem endpoint `tern ctl` nesta janela; conferência manual pendente.
 
 ### Task 8: Docs e publicação
-- [ ] `README.md` (inglês), `LICENSE` (MIT), `CHANGELOG.md`.
+- [x] `README.md` (inglês), `LICENSE` (MIT), `CHANGELOG.md`.
 - [ ] Repo público, push, `tern plugin install github.com/SamuelFontess/tern-pencil-preview`.
 - [ ] PR no awesome-tern (`list.yml`, Blocks).
 
