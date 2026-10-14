@@ -77,6 +77,7 @@ Tudo roda na metade **host** (worker do daemon, 2 s por chamada); processos semp
 | `lib/launch.luau` | argv do pen CLI e do abridor do sistema, com override por variável de ambiente |
 | `lib/script.luau` | Snippet JS `refresh` e o stdin de uma sessão `pen interactive` |
 | `lib/doc.luau` | Acha e interpreta a linha de resumo → frames e layers |
+| `lib/util.luau` | Funções puras do block: chave FNV-1a, caminhos, cauda da saída sem ANSI, frame/layer vizinho |
 | `lib/view.luau` | Views (frames, imagem, layers, inspetor, dock, telas de problema) |
 | `tests/` | Testes de unidade dos módulos puros com `luau` CLI e um stub de `tern` |
 

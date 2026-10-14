@@ -1,0 +1,13 @@
+schema = 1
+id = "pencil-preview"
+name = "Pencil Preview"
+version = "0.1.0"
+description = "Preview pen.dev .pen designs: frames as images, layers and an inspector."
+icon = "pen"
+host = "host.luau"
+
+[[blocks]]
+id = "preview"
+title = "Pencil Preview"
+files = ["*.pen"]
+palette = false
