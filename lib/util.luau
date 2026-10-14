@@ -43,6 +43,10 @@ end
 -- The last `max` bytes (or a little less, to start on a UTF-8 boundary) of `text` without ANSI
 -- escape sequences and carriage returns, trimmed.
 function util.tail(text: string, max: number): string
+	-- Only the end matters: escapes rarely take more than 8 bytes per shown character.
+	if #text > max * 8 then
+		text = text:sub(-max * 8):gsub("^[\128-\191]+", "")
+	end
 	local plain = text:gsub("\27%[[0-?]*[ -/]*[@-~]", "")
 	plain = plain:gsub("\27%][^\7\27]*\7", ""):gsub("\27%][^\7\27]*\27\\", ""):gsub("\27.", ""):gsub("\r", "")
 	plain = plain:gsub("^%s+", ""):gsub("%s+$", "")
@@ -125,6 +129,12 @@ function util.has_layer(frame: Frame?, id: string?): boolean
 		end
 	end
 	return false
+end
+
+-- Whether `id` is safe to join into a file name: non-empty, without separators, `..`, `:` or control
+-- characters.
+function util.safe_id(id: string): boolean
+	return id ~= "" and id:find("[/\\:%c]") == nil and id:find("..", 1, true) == nil
 end
 
 return util
