@@ -2,7 +2,8 @@
 
 Tern plugin (Luau) that previews pen.dev `.pen` designs. Read the spec before changing behavior:
 `docs/superpowers/specs/2026-10-13-tern-pencil-preview-design.md`; the task list is
-`docs/superpowers/plans/2026-10-13-tern-pencil-preview.md`.
+`docs/superpowers/plans/2026-10-13-tern-pencil-preview.md`. Both are local working notes, ignored by
+git and not published.
 
 ## Gate
 
