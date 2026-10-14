@@ -5,6 +5,7 @@
 
 local SUITES: { string } = {
 	"./stub_test",
+	"./launch_test",
 }
 
 export type T = {
