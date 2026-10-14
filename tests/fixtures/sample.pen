@@ -1,0 +1,72 @@
+{
+  "version": "2.19",
+  "children": [
+    {
+      "type": "frame",
+      "id": "FSXkK",
+      "x": 0,
+      "y": 0,
+      "name": "Login",
+      "width": 390,
+      "height": 844,
+      "fill": "#0F172A",
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 24,
+      "children": [
+        {
+          "type": "text",
+          "id": "LvEbe",
+          "name": "Title",
+          "fill": "#FFFFFF",
+          "content": "Welcome \"back\"",
+          "fontFamily": "Inter",
+          "fontSize": 32,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "ButZP",
+          "name": "Card",
+          "width": "fill_container",
+          "height": 200,
+          "fill": "#1E293B",
+          "cornerRadius": 12,
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "C3I9OB",
+              "name": "Avatar",
+              "fill": "#7C3AED",
+              "width": 48,
+              "height": 48
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "mQuDf",
+      "x": 500,
+      "y": 0,
+      "name": "Auto",
+      "fill": "#FFFFFF",
+      "layout": "vertical",
+      "padding": 20,
+      "children": [
+        {
+          "type": "text",
+          "id": "yg1Vx",
+          "name": "Label",
+          "fill": "#000000",
+          "content": "fit",
+          "fontFamily": "Inter",
+          "fontSize": 20,
+          "fontWeight": "normal"
+        }
+      ]
+    }
+  ],
+  "fileToken": "f66f4844-bf86-48ad-9f47-c00f028c574d"
+}
