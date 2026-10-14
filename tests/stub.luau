@@ -3,6 +3,14 @@
 
 local NULL = {}
 
+-- Tables tagged by json.array / decode: an empty one encodes as [] rather than {}.
+local arrays: { [any]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+
+local function markArray(t: any): any
+	arrays[t] = true
+	return t
+end
+
 local function isArray(t: { [any]: any }): (boolean, number)
 	local count = 0
 	for _ in t do
@@ -39,12 +47,19 @@ end
 
 local function encodeNumber(n: number): string
 	if n ~= n or n == math.huge or n == -math.huge then
-		error("tern.json.encode: non-finite number")
+		error("tern.json.encode: non-finite number", 0)
 	end
 	if n == math.floor(n) and math.abs(n) < 2 ^ 53 then
 		return string.format("%d", n)
 	end
-	return string.format("%.17g", n)
+	local s = string.format("%.15g", n)
+	if tonumber(s) ~= n then
+		s = string.format("%.16g", n)
+		if tonumber(s) ~= n then
+			s = string.format("%.17g", n)
+		end
+	end
+	return s
 end
 
 local function encode(value: any, pretty: boolean?, indent: string?): string
@@ -59,11 +74,11 @@ local function encode(value: any, pretty: boolean?, indent: string?): string
 	elseif kind == "string" then
 		return escapeString(value)
 	elseif kind ~= "table" then
-		error("tern.json.encode: unsupported type " .. kind)
+		error("tern.json.encode: unsupported type " .. kind, 0)
 	end
 	local isArr, count = isArray(value)
 	if count == 0 then
-		return "{}"
+		return if arrays[value] then "[]" else "{}"
 	end
 	local inner = ind .. "  "
 	local sep = if pretty then ",\n" .. inner else ","
@@ -79,7 +94,7 @@ local function encode(value: any, pretty: boolean?, indent: string?): string
 	local keys: { string } = {}
 	for k in value do
 		if typeof(k) ~= "string" then
-			error("tern.json.encode: object keys must be strings")
+			error("tern.json.encode: object keys must be strings", 0)
 		end
 		table.insert(keys, k)
 	end
@@ -209,7 +224,7 @@ local function decode(text: string): any
 			end
 		elseif c == "[" then
 			pos += 1
-			local arr: { any } = {}
+			local arr: { any } = markArray({})
 			skip()
 			if text:sub(pos, pos) == "]" then
 				pos += 1
@@ -263,24 +278,27 @@ export type Opts = {
 local M = {}
 
 local current: any = nil
+local attachedEnvs: { [{ [string]: any }]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 
 local function setGlobal(fn: any, tern: any)
 	(getfenv(fn) :: any).tern = tern
 end
 
-local function attachTo(value: any, seen: { [any]: boolean }, tern: any)
+local function attachTo(value: any, seen: { [any]: boolean })
 	if typeof(value) == "function" then
-		setGlobal(value, tern)
+		local fenv = getfenv(value) :: any
+		attachedEnvs[fenv] = true
+		fenv.tern = current
 	elseif typeof(value) == "table" and not seen[value] then
 		seen[value] = true
 		for _, v in value do
-			attachTo(v, seen, tern)
+			attachTo(v, seen)
 		end
 	end
 end
 
 function M.attach<T>(mod: T): T
-	attachTo(mod, {}, current)
+	attachTo(mod, {})
 	return mod
 end
 
@@ -302,11 +320,14 @@ function M.install(opts: Opts): any
 			encode = encode,
 			decode = decode,
 			array = function(t: { any }?): { any }
-				return t or {}
+				return markArray(t or {})
 			end,
 		},
 	}
 	current = tern
+	for attached in attachedEnvs do
+		attached.tern = tern
+	end
 	setGlobal(3, tern)
 	return tern
 end

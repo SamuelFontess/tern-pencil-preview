@@ -38,7 +38,32 @@ tests.encode_shapes = function(t)
 	t.eq(j.encode(3.0), "3")
 	t.eq(j.encode(1.5), "1.5")
 	t.eq(j.encode(true), "true")
-	t.eq(j.encode(j.array()), "{}")
+	t.eq(j.encode(j.array()), "[]")
+	t.eq(j.encode(j.array({ 1 })), "[1]")
+	t.eq(j.encode(j.decode("[]")), "[]")
+	t.eq(j.encode(j.decode('{"a":[]}')), '{"a":[]}')
+end
+
+tests.encode_numbers_round_trip = function(t)
+	local j = json()
+	t.eq(j.encode(0.1), "0.1")
+	for _, n in { 0.1 + 0.2, 1 / 3, 1e-7, 123456.789, 2 ^ 60 } do
+		t.eq(j.decode(j.encode(n)), n)
+	end
+	t.raises(function()
+		j.encode(math.huge)
+	end, "^tern%.json%.encode: ")
+end
+
+tests.attach_follows_later_installs = function(t)
+	stub.install({ os = "windows" })
+	local fn = setfenv(loadstring("return tern.runtime.os") :: any, {}) :: any
+	stub.attach({ nested = { fn } })
+	t.eq(fn(), "windows")
+	stub.install({ os = "macos" })
+	t.eq(fn(), "macos")
+	stub.install({ os = "linux" })
+	t.eq(fn(), "linux")
 end
 
 tests.encode_sparse_table_is_not_array = function(t)
