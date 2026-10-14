@@ -77,6 +77,7 @@ Tudo roda na metade **host** (worker do daemon, 2 s por chamada); processos semp
 | `lib/launch.luau` | argv do pen CLI e do abridor do sistema, com override por variável de ambiente |
 | `lib/script.luau` | Snippet JS `refresh` e o stdin de uma sessão `pen interactive` |
 | `lib/doc.luau` | Acha e interpreta a linha de resumo → frames e layers |
+| `lib/util.luau` | Funções puras do block: chave FNV-1a, caminhos, cauda da saída sem ANSI, frame/layer vizinho |
 | `lib/view.luau` | Views (frames, imagem, layers, inspetor, dock, telas de problema) |
 | `tests/` | Testes de unidade dos módulos puros com `luau` CLI e um stub de `tern` |
 
@@ -118,9 +119,12 @@ type State = {
   panel: boolean,                         -- painel de layers visível
   blob: string?, png: string?,            -- blob atual e os bytes que o geraram
   busy: boolean, paused: boolean, stopped: boolean,
+  force: boolean,                         -- `r` pediu uma renderização que ainda não começou
   disk: string?,                          -- conteúdo do .pen da última renderização
   rendered: string?,                      -- frame exportado na última renderização
-  problem: Problem?, notice: string?, updated_at: string?,
+  problem: Problem?,                      -- card de problema (sem imagem na tela)
+  notice: Problem?,                       -- mesmo formato de `problem`; aviso no dock com imagem na tela
+  updated_at: string?,
 }
 ```
 
@@ -129,9 +133,9 @@ type State = {
 ### Ciclo
 
 - Uma renderização por vez (`busy`). A cada 2 s (se não estiver pausado), um timer lê o `.pen` com `tern.fs.read(path, 16 MiB)` dentro de `pcall`. Se o conteúdo for igual a `disk` e `rendered == frame_id`, não faz nada. Senão renderiza.
-- Renderizar: `pen interactive -i <path> -o <data>/scratch/<chave>.pen` com stdin `script.session({ script.refresh(frame_id, <data>/exports/<chave>, 4096) })`, `timeout_ms = 60000`. Na volta: `doc.find_summary` + `doc.parse`; confere o PNG com `tern.fs.exists` (a doc avisa que um export pode falhar com exit 0); lê o PNG e só chama `cx:blob` se os bytes mudaram.
+- Renderizar: `pen interactive -i <path> -o <data>/scratch/<chave>-<pane>.pen` com stdin `script.session({ script.refresh(frame_id, <data>/exports/<chave>/<pane>, 4096) })`, `timeout_ms = 60000`. Antes, apaga e recria `<data>/exports/<chave>/<pane>`. Na volta: `doc.find_summary` + `doc.parse`; confere o PNG com `tern.fs.exists` (a doc avisa que um export pode falhar com exit 0); lê o PNG e só chama `cx:blob` se os bytes mudaram.
 - Trocar de frame renderiza o novo frame na hora.
-- `<chave>` = FNV-1a de 32 bits do caminho, em hexa.
+- `<chave>` = FNV-1a de 32 bits do caminho, em hexa; `<pane>` = `cx.pane`, para que dois panes do mesmo arquivo nunca apaguem a imagem um do outro.
 - Todo callback e timer confere `tern.pane.list()` e para quando o pane do block sumiu, como no exemplo `watch` da doc.
 - Erro com imagem anterior na tela: mantém a imagem e mostra o aviso no dock. Sem imagem: card de problema.
 

@@ -8,6 +8,7 @@ local SUITES: { string } = {
 	"./script_test",
 	"./launch_test",
 	"./doc_test",
+	"./util_test",
 }
 
 export type T = {
