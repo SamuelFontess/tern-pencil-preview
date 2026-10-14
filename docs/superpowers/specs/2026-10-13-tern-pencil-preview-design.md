@@ -79,8 +79,8 @@ Tudo roda na metade **host** (worker do daemon, orçamento de 2 s por chamada); 
 | `window.luau` | `tern.route.open` para `.pen`, comando de interruptor da rota, comando "preview do documento aberto no Pencil" |
 | `lib/launch.luau` | Resolve argv do pen CLI, caminho do servidor MCP e do app por SO, com overrides por variável de ambiente |
 | `lib/mcp.luau` | Monta o stdin JSON-RPC de uma chamada avulsa, separa respostas por `id`, classifica erros |
-| `lib/doc.luau` | `.pen` JSON / resumo do app → frames e layers; escala de export; leitura do cabeçalho PNG |
-| `lib/script.luau` | Gera os snippets JS do `execute` (resumo, Export, Update) com escaping seguro de strings |
+| `lib/doc.luau` | Resumo impresso pelo snippet de refresh → frames de topo e layers |
+| `lib/script.luau` | Gera os snippets JS do `execute` (refresh = resumo + Export; Update na fase 2) com escaping seguro de strings |
 | `lib/view.luau` | Construtores de view puros (frames, imagem, layers, inspetor, dock, telas de erro) |
 | `tests/` | Testes de unidade dos módulos puros com `luau` CLI e um stub de `tern` |
 
@@ -101,16 +101,15 @@ mcp.parse(stdout: string, stderr: string, status: number, n: number): { Reply } 
 mcp.active_document(app_state_text: string): string? -- caminho nativo do documento ativo
 
 -- lib/doc.luau
-export type Layer = { id: string, name: string, type: string, depth: number, parent: string?, props: { [string]: any } }
-export type Frame = { id: string, name: string, w: number?, h: number?, layers: { Layer } }
-doc.from_pen(json_text: string): ({ Frame }?, string?)      -- arquivo .pen
-doc.from_summary(json_text: string): ({ Frame }?, string?)  -- saída do snippet de resumo do app
-doc.export_scale(f: Frame): number                          -- min(2, 4096/maior lado), piso 0.1; 1 se tamanho desconhecido
-doc.png_size(bytes: string): (number?, number?)             -- IHDR
+export type Layer = { id: string, name: string, type: string, depth: number, parent: string?,
+  x: number?, y: number?, w: number?, h: number?, content: string?, fill: string?, ref: string?, reusable: boolean? }
+export type Frame = { id: string, name: string, w: number?, h: number?, layers: { Layer } }  -- layers em pré-ordem, sem o próprio frame
+export type Summary = { frames: { Frame }, exported: string?, scale: number? }   -- exported = id do frame exportado neste refresh
+doc.parse(stdout_line: string): (Summary?, string?)     -- JSON {v=1, layers, exported, scale}
+doc.find_summary(text: string): string?                 -- extrai a linha {"v":1,…} de uma saída maior
 
 -- lib/script.luau
-script.summary(max_depth: number): string            -- JS que imprime JSON {frames:[…]} com layers até max_depth
-script.export(ids: { string }, dir: string, scale: number): string
+script.refresh(want_id: string?, dir: string, max_side: number): string  -- JS: resumo + Export do frame escolhido; imprime a linha {"v":1,…}
 script.update(id: string, props: { [string]: any }): string   -- fase 2
 script.js_string(s: string): string                  -- literal JS seguro (via tern.json.encode)
 ```
@@ -137,9 +136,9 @@ Persistência (`save`): `{ frame_id, layer, panel, paused }`. Reaberturas restau
 ### Ciclo de atualização
 
 - Um tick por vez (`busy`); próximo tick agendado só depois do anterior terminar: 1,5 s no modo Ao vivo, 2 s no modo Arquivo. Pausado (`space`) não agenda. Toda chamada checa se o pane do block ainda existe (`tern.pane.list`) antes de agir, como no exemplo `watch` da doc.
-- **Tentativa Ao vivo** (se `launch.mcp_server()` existe): uma chamada avulsa com duas `execute` com `filePath = path`: (1) `script.summary(6)`; (2) `script.export({frame_id}, dir, scale)`. Sucesso → `mode = "live"`, atualiza frames/layers, lê o PNG e só chama `cx:blob` se os bytes mudaram. `not_open` ou `no_app` → cai para o modo Arquivo no mesmo tick. `timeout_ms = 10000`.
-- **Modo Arquivo**: lê o `.pen` com `tern.fs.read(path, 16 MiB)`. Se igual a `disk` e o PNG do frame atual já está em `cache`, nada a fazer. Se mudou → `doc.from_pen`, limpa `cache`. Se falta o PNG do frame atual → `pen interactive -i <path> -o <data>/scratch/<hash>.pen` com stdin `execute({ input: <script.export> })\nexit()\n`, `timeout_ms = 60000`. O arquivo do usuário nunca é escrito.
-- Escala: `doc.export_scale(frame)`. Depois de ler o PNG, `doc.png_size` confere o limite de 4096 px; se exceder (frame com tamanho `fit_content`), reexporta uma vez com escala calculada a partir do tamanho real.
+- **Tentativa Ao vivo** (se `launch.mcp_server()` existe): uma chamada MCP avulsa com uma `execute` (`filePath = path`, `input = script.refresh(...)`). Sucesso → `mode = "live"`, atualiza frames/layers, lê o PNG e só chama `cx:blob` se os bytes mudaram. `not_open` ou `no_app` → cai para o modo Arquivo no mesmo tick. `timeout_ms = 10000`.
+- **Modo Arquivo**: lê o `.pen` com `tern.fs.read(path, 16 MiB)`. Se igual a `disk` e o PNG do frame atual já está em `cache`, nada a fazer. Senão roda `pen interactive -i <path> -o <data>/scratch/<chave>.pen` com stdin `execute({ input: <script.refresh> })\nexit()\n`, `timeout_ms = 60000`, e guarda o PNG em `cache`. O arquivo do usuário nunca é escrito (não há `save()`).
+- Os dois modos executam o mesmo snippet `script.refresh(want_id, dir, 4096)`: percorre o documento com `Get(visit)` (profundidade ≤ 6), usa `ctx.bounds` (tamanho resolvido, inclusive `fit_content`), escolhe o frame `want_id` se ainda existir no topo, senão o primeiro, calcula `scale = min(2, 4096 / maior lado)` e chama `Export([id], "png", dir, {scale})`. Imprime uma linha JSON `{"v":1,"layers":[…],"exported":id,"scale":s}`. Assim o PNG nunca passa de 4096 px e o resumo não depende de interpretar `ref`/instâncias no Luau.
 - Diretório de export: `<tern.plugin.data>/exports/<chave>/`, chave = hash simples do caminho (FNV-1a em Luau), recriado por export.
 
 ### Interação
@@ -185,7 +184,8 @@ Padrões: Windows — CLI pelo `pen.cmd` no `PATH` traduzido para `node <dir>/no
 
 ## Testes
 
-- **Unidade** (`luau tests/run.luau`): `doc` (frames/layers de `.pen` real, `fit_content`, sem frames, JSON inválido, escala, IHDR), `mcp` (stdin gerado, respostas fora de ordem, `not_open`, erro de spawn/stdout vazio, `active_document` com caminho `/C:/…`), `script` (escaping de aspas/barras/quebras de linha no caminho e nos valores), `launch` (Windows com `pen.cmd` no PATH, override por env, nada encontrado) com stub de `tern.fs.exists`/`tern.getenv`/`tern.runtime`.
+- **Unidade** (`luau tests/run.luau`): `doc` (resumo real gerado do fixture `tests/fixtures/sample.pen`, agrupamento por frame, frame `fit_content` com tamanho resolvido, linha ausente, JSON inválido, documento sem frames), `mcp` (stdin gerado, respostas fora de ordem, `not_open`, stdout vazio, `active_document` com caminho `/C:/…`), `script` (escaping de aspas/barras/quebras de linha), `launch` (Windows com `pen.cmd` no PATH, override por env, nada encontrado) com stub de `tern.fs.exists`/`tern.getenv`/`tern.runtime`.
+- **Contrato do snippet** (script descartável, não versionado): rodar `script.refresh` gerado pelo Luau no `pen interactive` headless contra o fixture e no app pelo MCP, e conferir PNG + linha de resumo.
 - **Tipos**: `luau-analyze` com `tern.d.luau` gerado por `tern plugin types`.
 - **Smoke real** (obrigatório antes de publicar): `tern plugin link .`; `tern open` num `.pen` → o block mostra a imagem (`tern ctl tree "[data-surface='plugin.pencil-preview.preview']"`); abrir o mesmo arquivo no Pencil, aplicar `Update` pelo MCP e ver o modo mudar para Ao vivo e a imagem atualizar sem salvar; fechar o app e ver o modo Arquivo.
 
