@@ -154,4 +154,27 @@ tests.stale_render_lists_other_render_versions = function(t)
 	t.eq(cache.stale_render({ old, cur }), { old })
 end
 
+tests.reserve_plan_reuses_a_sealed_key_folder = function(t)
+	t.eq(cache.reserve_plan("k1r2", true, false), "show")
+	t.eq(cache.reserve_plan("k1r2", true, true), "show", "a sealed folder is read, never written")
+end
+
+tests.reserve_plan_exports_into_a_free_unsealed_key_folder = function(t)
+	t.eq(cache.reserve_plan("k1r2", false, false), "key")
+end
+
+tests.reserve_plan_uses_the_version_folder_when_the_key_is_busy_or_missing = function(t)
+	t.eq(cache.reserve_plan("k1r2", false, true), "version")
+	t.eq(cache.reserve_plan(nil, false, false), "version")
+end
+
+tests.reserve_outcome_seals_only_the_exact_checked_frame = function(t)
+	t.eq(cache.reserve_outcome("A", "A", false, true), "seal")
+	t.eq(cache.reserve_outcome("A", "A", true, true), "drop", "timeout")
+	t.eq(cache.reserve_outcome("A", "B", false, true), "drop", "another frame")
+	t.eq(cache.reserve_outcome("A", nil, false, true), "drop", "no frame exported")
+	t.eq(cache.reserve_outcome(nil, nil, false, true), "drop", "no frame asked")
+	t.eq(cache.reserve_outcome("A", "A", false, false), "drop", "image did not check")
+end
+
 return tests

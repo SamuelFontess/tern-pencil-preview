@@ -2,7 +2,7 @@
 -- The render cache on disk, per file (`<plugin.data>/cache/<file key>/`): `img/<frame key>/` holds the image of
 -- one frame version (`<id>.jpeg|png`) and, once checked, `ok`; each `<version>-<pane>/` folder holds
 -- `summary.json` (the `refresh` output), `keys.json` (frame id → frame key), `used` and, written last,
--- `complete`. Frames rendered one per run keep their image in the version folder itself.
+-- `complete`. Frames rendered one per run go to their key folder when it is free, else to the version folder.
 local cache = require("./cache")
 local doc = require("./doc")
 local util = require("./util")

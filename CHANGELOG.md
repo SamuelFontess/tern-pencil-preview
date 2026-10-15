@@ -3,6 +3,13 @@
 All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.1] - 2026-10-15
+
+### Fixed
+
+- A top-level frame without a fixed size keeps its image in the render cache: it no longer renders again on every
+  new version of the file or when the file is reopened, while the frame itself is unchanged.
+
 ## [0.3.0] - 2026-10-15
 
 ### Added

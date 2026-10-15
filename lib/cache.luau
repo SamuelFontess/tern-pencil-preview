@@ -191,4 +191,25 @@ function cache.stale_render(entries: { Entry }): { Entry }
 	return out
 end
 
+-- Where a reserve render of a frame with `key` goes: a sealed key folder is shown as is (no process); an unsealed one
+-- that no other batch holds (`busy`) gets the export; otherwise, or with no key, the version folder does.
+function cache.reserve_plan(key: string?, sealed: boolean, busy: boolean): "show" | "key" | "version"
+	if key == nil then
+		return "version"
+	end
+	if sealed then
+		return "show"
+	end
+	return if busy then "version" else "key"
+end
+
+-- Whether a reserve export into a key folder earns the seal: only the exact frame asked for (`want`), not cut short,
+-- with an image that checked. Anything else is dropped from the folder.
+function cache.reserve_outcome(want: string?, exported: string?, timed_out: boolean, image_ok: boolean): "seal" | "drop"
+	if timed_out or want == nil or exported ~= want or not image_ok then
+		return "drop"
+	end
+	return "seal"
+end
+
 return cache

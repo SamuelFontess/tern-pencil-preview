@@ -240,8 +240,8 @@ local function show(state: State): boolean
 end
 
 -- Makes `summary` of `version` what the block shows: images from the key folders in `keys`, else from `dir`. A
--- frame whose key folder is not sealed loses its key (its image then comes from `dir`, where the reserve path
--- renders it) and turns on the reserve path.
+-- frame whose key folder is not sealed loses its key (its image then comes from `dir`, or from the key folder once
+-- the reserve path seals it) and turns on the reserve path.
 local function adopt(
 	state: State,
 	content: string,
@@ -433,32 +433,61 @@ local function shrinkBatch(
 	end
 end
 
--- After a reserve run: show its frame, or record why it has no image.
-local function oneDone(state: State, content: string, version: string, dir: string, want: string?, r: ProcessResult)
+-- After a reserve run: show its frame, or record why it has no image. `into`: the unsealed key folder it exported
+-- into, sealed only when the exact frame asked for checked and cleared otherwise; `key`: the frame key the shown
+-- version gets for `want` (adopt keeps it only when its folder is sealed).
+local function oneDone(
+	state: State,
+	content: string,
+	version: string,
+	dir: string,
+	want: string?,
+	into: string?,
+	key: string?,
+	r: ProcessResult
+)
+	local summary: doc.Summary?, why: string? = nil, nil
+	if not r.timed_out then
+		local _
+		_, summary, why = summaryOf(r)
+	end
+	local exported = if summary then summary.exported else nil
+	local unsafe = exported ~= nil and not util.safe_id(exported)
+	local bytes, missing, over = 0, false, false
+	if summary and exported and not unsafe then
+		local again
+		bytes, again, missing = verify(state, into or dir, { { id = exported, scale = summary.scale or 2, format = "png" } })
+		over = #again > 0
+	end
+	if into then
+		local checked = summary ~= nil and not unsafe and not missing and not over
+		local sealed = cache.reserve_outcome(want, exported, r.timed_out, checked) == "seal"
+			and pcall(store.seal, into, bytes)
+		if not sealed then
+			pcall(tern.fs.remove, into)
+		end
+	end
 	if r.timed_out then
 		state.failed = want
 		report(state, "timeout", "Render timed out", "pen took longer than 60 s; press r to try again.")
 		settle(state, content)
 		return
 	end
-	local _, summary, why = summaryOf(r)
 	if summary == nil then
 		state.failed = want
 		failRender(state, content, why or "invalid summary", r)
 		return
 	end
-	local exported = summary.exported
-	if exported and not util.safe_id(exported) then
+	if unsafe then
 		state.failed = exported
 		failRender(state, content, "unexpected frame id", r)
 		return
 	end
-	local missing, over = false, false
-	if exported then
-		local _, again, gone = verify(state, dir, { { id = exported, scale = summary.scale or 2, format = "png" } })
-		missing, over = gone, #again > 0
+	local keys = if dir == state.dir then state.keys else {}
+	if want and key then
+		keys[want] = key
 	end
-	adopt(state, content, version, dir, if dir == state.dir then state.keys else {}, summary, true)
+	adopt(state, content, version, dir, keys, summary, true)
 	if missing then
 		state.failed = exported
 		failRender(state, content, "pen exported no image", r)
@@ -473,8 +502,9 @@ local function oneDone(state: State, content: string, version: string, dir: stri
 	end
 end
 
--- The reserve path: one frame per run (the chosen one, or the first when it is gone), as PNG into `dir`,
--- with the layers. Used when the .pen cannot be read here or a batch export failed.
+-- The reserve path: one frame per run (the chosen one, or the first when it is gone), as PNG with the layers. Used
+-- when the .pen cannot be read here, a batch export failed or a frame has no fixed size. A frame whose key folder is
+-- sealed needs no export; one whose key folder no other batch holds exports into it; any other into `dir`.
 local function renderOne(state: State, content: string, version: string, dir: string): boolean
 	local cli = launch.pen_cli()
 	if cli == nil then
@@ -488,21 +518,63 @@ local function renderOne(state: State, content: string, version: string, dir: st
 	if reserving[rkey] then
 		return false
 	end
+	local fileDir = state.file_dir :: string
+	local key: string? = nil
+	if want and util.safe_id(want) then
+		key = if dir == state.dir then state.keys[want] else nil
+		if key == nil and #content <= MAX_DECODE then
+			key = cache.frame_keys(content)[want]
+		end
+	end
+	local kd = if key then store.key_dir(fileDir, key) else nil
+	local plan = cache.reserve_plan(key, kd ~= nil and store.sealed(kd) ~= nil, kd ~= nil and exporting[kd] ~= nil)
+	if plan == "show" and dir == state.dir then
+		state.keys[want :: string] = key :: string
+		if show(state) then
+			settle(state, content)
+			return true
+		end
+		-- The sealed image could not be read: render into the version folder instead.
+		state.keys[want :: string] = nil
+		plan = "version"
+	end
+	local into: string? = nil
+	if plan == "key" then
+		local target = kd :: string
+		if pcall(function()
+			if tern.fs.exists(target) then
+				tern.fs.remove(target)
+			end
+			tern.fs.mkdir(target)
+		end) then
+			into = target
+		end
+	end
+	-- A sealed key folder of a version not shown yet: only the layers are read, its image is never rewritten.
+	local export = plan ~= "show"
+	local adoptKey = if plan == "show" or into then key else nil
+	local held: { string } = if into then { into } else {}
+	hold(held)
 	reserving[rkey] = true
 	state.busy = true
 	local started, err = pcall(function()
 		local argv = penArgv(cli.argv, inputFor(state, content), state.scratch :: string)
 		tern.process.run(argv, {
-			stdin = script.session({ script.refresh(want, dir, MAX_SIDE, cap, true) }),
+			stdin = script.session({ script.refresh(want, into or dir, MAX_SIDE, cap, export) }),
 			timeout_ms = RENDER_TIMEOUT_MS,
 		}, function(r: ProcessResult, _: WindowCx?)
 			reserving[rkey] = nil
 			state.busy = false
 			if not running(cx.pane) then
+				if into then
+					pcall(tern.fs.remove, into)
+				end
+				release(held)
 				stop(state)
 				return
 			end
-			oneDone(state, content, version, dir, want, r)
+			oneDone(state, content, version, dir, want, into, adoptKey, r)
+			release(held)
 			if state.force or state.switch then
 				check(state)
 			end
@@ -512,6 +584,10 @@ local function renderOne(state: State, content: string, version: string, dir: st
 	if not started then
 		reserving[rkey] = nil
 		state.busy = false
+		if into then
+			pcall(tern.fs.remove, into)
+		end
+		release(held)
 		report(state, "spawn", "Could not start " .. cli.label, tostring(err))
 		settle(state, content)
 	end
@@ -631,6 +707,17 @@ local function startBatch(state: State, content: string, version: string): boole
 			end
 			-- Otherwise another batch exports this key and seals it; adopt falls back to the reserve path
 			-- when it has not yet.
+		end
+		-- Frames without a fixed size are not in the batch; the reserve path renders them into these key folders.
+		-- Listing and holding the keys keeps the folders past the sweep; only sealed ones count toward the cache
+		-- bytes, as an unsealed folder holds nothing trusted yet.
+		for id, key in keys do
+			if batchKeys[id] == nil and util.safe_id(id) then
+				local kd = store.key_dir(fileDir, key)
+				batchKeys[id] = key
+				table.insert(held, kd)
+				have += store.sealed(kd) or 0
+			end
 		end
 	end)
 	if not readied then
