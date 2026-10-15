@@ -160,4 +160,63 @@ tests.shrink_always_lowers_the_scale = function(t)
 	t.eq(util.shrink(0.001, 5000, 4096), nil, "no positive scale left")
 end
 
+-- Expected values come from Node 22's url.pathToFileURL (2026-10-14).
+tests.file_uri_matches_node_on_windows = function(t)
+	local cases = {
+		{ "D:\\a\\b.pen", "file:///D:/a/b.pen" },
+		{ "d:\\lower\\x.pen", "file:///d:/lower/x.pen" },
+		{ "C:\\Users\\x y\\a#b%c?.pen", "file:///C:/Users/x%20y/a%23b%25c%3F.pen" },
+		{ "D:\\ação\\ç.pen", "file:///D:/a%C3%A7%C3%A3o/%C3%A7.pen" },
+		{ "D:\\a\\[x]{y}^~!$&()+,;=@'.pen", "file:///D:/a/%5Bx%5D%7By%7D%5E%7E!$&()+,;=@'.pen" },
+		{ "\\\\server\\share\\f.pen", "file://server/share/f.pen" },
+		{ "\\\\SERVER\\share\\f.pen", "file://server/share/f.pen" },
+		{ "D:\\a\\..\\b\\.\\c.pen", "file:///D:/b/c.pen" },
+		{ "D:/fwd/slash.pen", "file:///D:/fwd/slash.pen" },
+		{ "D:\\d\\a\tb", "file:///D:/d/a%09b" },
+		{ "D:\\d\\a`|\"<>b", "file:///D:/d/a%60%7C%22%3C%3Eb" },
+	}
+	for _, c in cases do
+		t.eq(util.file_uri(c[1], true), c[2], c[1])
+	end
+	t.eq(util.file_uri("rel\\x.pen", true), nil)
+end
+
+tests.file_uri_on_posix = function(t)
+	t.eq(util.file_uri("/home/u/a b.pen", false), "file:///home/u/a%20b.pen")
+	t.eq(util.file_uri("rel/x.pen", false), nil)
+end
+
+tests.backup_paths_name_the_pencil_backup = function(t)
+	t.eq(util.backup_paths("C:\\Users\\me", "D:\\pen-probe\\probe.pen", true), {
+		"C:\\Users\\me/.pencil/backup/c4cfa63fde8a8cca804041af59b55cc06e98b6d9",
+		"C:\\Users\\me/.pencil/backup/fe0b40166a808ca4c5ff7d44da0cd074df923375",
+	})
+	t.eq(util.backup_paths("/home/u", "/home/u/a b.pen", false), { "/home/u/.pencil/backup/adf6f2675749ef899ce23f7e50d91f13a7c2736b" })
+	t.eq(util.backup_paths(nil, "D:\\a.pen", true), {})
+	t.eq(util.backup_paths("C:\\Users\\me", "a.pen", true), {})
+end
+
+tests.rewrite_urls_resolves_relative_assets = function(t)
+	local doc = '{"fill":[{"url":"photo.png"},{"url": "./photo.png"},{"url":"sub/a b.png"},{"url":"../up.png"}]}'
+	local out, n = util.rewrite_urls(doc, "D:\\pen\\img", true)
+	t.eq(n, 4)
+	t.eq(
+		out,
+		'{"fill":[{"url":"file:///D:/pen/img/photo.png"},{"url": "file:///D:/pen/img/photo.png"},{"url":"file:///D:/pen/img/sub/a%20b.png"},{"url":"file:///D:/pen/up.png"}]}'
+	)
+end
+
+tests.rewrite_urls_leaves_other_values = function(t)
+	local doc = '{"a":{"url":"pencil:pending-image-1"},"b":{"url":"https://x/y.png"},"c":{"url":"/abs.png"},"d":{"url":"esc\\"q.png"},"e":{"url":""},"f":{"href":"x.png"}}'
+	local out, n = util.rewrite_urls(doc, "D:\\pen", true)
+	t.eq(n, 0)
+	t.eq(out, doc)
+end
+
+tests.dirname_of_paths = function(t)
+	t.eq(util.dirname("D:\\a\\b.pen"), "D:\\a")
+	t.eq(util.dirname("/x/y/z.pen"), "/x/y")
+	t.eq(util.dirname("z.pen"), ".")
+end
+
 return tests

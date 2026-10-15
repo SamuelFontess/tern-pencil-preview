@@ -11,6 +11,7 @@ local SUITES: { string } = {
 	"./util_test",
 	"./cache_test",
 	"./store_test",
+	"./sha1_test",
 }
 
 export type T = {

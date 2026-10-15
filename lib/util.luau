@@ -1,6 +1,7 @@
 --!strict
 -- Pure helpers for the preview block: paths, the data key, process output and selection steps.
 local doc = require("./doc")
+local sha1 = require("./sha1")
 
 type Frame = doc.Frame
 type Layer = doc.Layer
@@ -169,6 +170,84 @@ end
 function util.shrink(scale: number, side: number, max_side: number): number?
 	local fit = math.min(math.floor(scale * max_side / side * 1000), math.floor(scale * 1000 + 0.5) - 1) / 1000
 	return if fit > 0 then fit else nil
+end
+
+-- Bytes Node's url.pathToFileURL percent-encodes in a path: what is outside these, as %XX.
+local function percent(s: string): string
+	return (s:gsub("[^%w!$&'()*+,%-%.;=@_/:]", function(ch: string): string
+		return string.format("%%%02X", ch:byte())
+	end))
+end
+
+-- `path` as Node's `url.pathToFileURL(path).href`: dot segments resolved, the drive letter as given. Nil for a
+-- relative path. On Windows, `\` separates and `\\server\share` is a UNC path.
+function util.file_uri(path: string, windows: boolean): string?
+	local p = if windows then path:gsub("\\", "/") else path
+	local prefix: string, body: string
+	local server, stail = p:match("^//([^/]+)(/.*)$")
+	local drive, dtail = p:match("^(%a:)(/.*)$")
+	if windows and server and stail then
+		prefix, body = "file://" .. server:lower(), stail
+	elseif windows and drive and dtail then
+		prefix, body = "file:///" .. drive, dtail
+	elseif not windows and p:sub(1, 1) == "/" then
+		prefix, body = "file://", p
+	else
+		return nil
+	end
+	local parts: { string } = {}
+	for seg in body:gmatch("[^/]+") do
+		if seg == ".." then
+			if #parts > 0 then
+				table.remove(parts)
+			end
+		elseif seg ~= "." then
+			table.insert(parts, seg)
+		end
+	end
+	return prefix .. "/" .. percent(table.concat(parts, "/"))
+end
+
+-- Where Pencil keeps unsaved edits of `path`: `<home>/.pencil/backup/<sha1 of its file URL>`. The app writes the
+-- drive letter as it opened the file, so on Windows both spellings are listed.
+function util.backup_paths(home: string?, path: string, windows: boolean): { string }
+	local out: { string } = {}
+	local uri = util.file_uri(path, windows)
+	if home == nil or home == "" or uri == nil then
+		return out
+	end
+	local dir = home .. "/.pencil/backup/"
+	table.insert(out, dir .. sha1.hex(uri))
+	local drive = if windows then uri:match("^file:///(%a):") else nil
+	if drive then
+		local other = if drive == drive:upper() then drive:lower() else drive:upper()
+		table.insert(out, dir .. sha1.hex("file:///" .. other .. uri:sub(10)))
+	end
+	return out
+end
+
+-- `content` with each relative `"url": "…"` value (no scheme, not rooted, no escapes) as a file URL resolved in
+-- `base_dir`, and how many it changed. pen reads a copy of Pencil's backup from another folder; relative assets
+-- would resolve there and silently drop out.
+function util.rewrite_urls(content: string, base_dir: string, windows: boolean): (string, number)
+	local count = 0
+	local out = content:gsub('("url"%s*:%s*")([^"\\]*)(")', function(open: string, ...: string): string
+		local value, close = ...
+		if value == "" or value:match("^%a[%w+.%-]*:") or value:match("^[/\\]") then
+			return open .. value .. close
+		end
+		local uri = util.file_uri(base_dir .. "/" .. value, windows)
+		if uri == nil then
+			return open .. value .. close
+		end
+		count += 1
+		return open .. uri .. close
+	end)
+	return out, count
+end
+
+function util.dirname(path: string): string
+	return path:match("^(.*)[/\\][^/\\]*$") or "."
 end
 
 return util

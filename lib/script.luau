@@ -27,7 +27,8 @@ end
 
 script.JPEG_QUALITY = 92
 
-export type Item = { id: string, scale: number, format: string }
+-- `dir`: where this item's image goes, when it is not the batch folder (`<file>/img/<frame key>`).
+export type Item = { id: string, scale: number, format: string, dir: string? }
 
 -- What a batch exports: `first` ahead of the other frames when it is one of `tops`, each at a scale that fits
 -- its stroke inside `max_side` (at most its cap), as JPEG when the frame has a fill and PNG when it does not.
@@ -55,16 +56,16 @@ function script.plan_batch(tops: { doc.Top }, first: string?, caps: { [string]: 
 	return out
 end
 
--- One `Export` per item into `dir` (`<dir>/<id>.<format>`), for one `execute` run before any `Get`: pen
+-- One `Export` per item into its folder (`<item.dir or dir>/<id>.<format>`), for one `execute` run before any `Get`: pen
 -- exports about twice as fast then. A missing node fails the whole call; pen undoes it.
 function script.exports(items: { Item }, dir: string): string
 	local out: { string } = {}
-	local d = script.js_string(dir)
 	for _, item in items do
 		local opts = "{scale:" .. formatNumber(item.scale)
 		if item.format == "jpeg" then
 			opts ..= ",quality:" .. formatNumber(script.JPEG_QUALITY)
 		end
+		local d = script.js_string(item.dir or dir)
 		table.insert(out, "Export([" .. script.js_string(item.id) .. "]," .. script.js_string(item.format) .. "," .. d .. "," .. opts .. "})")
 	end
 	return table.concat(out, ";")

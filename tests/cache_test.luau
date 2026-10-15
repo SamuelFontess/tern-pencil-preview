@@ -1,5 +1,6 @@
 --!strict
 local stub = require("./stub")
+stub.attach(require("../lib/canon"))
 local cache = stub.attach(require("../lib/cache"))
 
 type T = {
@@ -86,6 +87,71 @@ end
 tests.prune_counts_protected_toward_keep = function(t)
 	local list = { e("f", "v1", 1, true, 30, 1), e("f", "v2", 1, true, 20, 1), e("f", "v3", 1, true, 10, 1) }
 	t.eq(names(cache.prune(list, { [1] = true }, { ["f/v1-1"] = true }, 2, math.huge)), { "f/v3-1" })
+end
+
+local DOC = '{"version":"2.20","variables":{"bg":{"type":"color","value":"#fff"}},"children":['
+	.. '{"type":"frame","id":"A","children":[{"type":"text","id":"t1","content":"x"},{"type":"frame","id":"C","reusable":true,"fill":"#111"}]},'
+	.. '{"type":"frame","id":"B","children":[{"type":"text","id":"t2","content":"y"}]},'
+	.. '{"type":"note","id":"N","content":"n"}]}'
+
+tests.frame_keys_change_only_for_the_edited_frame = function(t)
+	stub.install({})
+	local k0 = cache.frame_keys(DOC)
+	t.truthy(k0.A and k0.B and k0.A ~= k0.B)
+	t.eq(k0.N, nil, "only frames get keys")
+	local k1 = cache.frame_keys((DOC:gsub('"content":"y"', '"content":"z"')))
+	t.eq(k1.A, k0.A)
+	t.truthy(k1.B ~= k0.B)
+end
+
+tests.frame_keys_change_everywhere_for_shared_parts = function(t)
+	stub.install({})
+	local k0 = cache.frame_keys(DOC)
+	for what, edited in {
+		variable = (DOC:gsub('"#fff"', '"#000"')),
+		reusable = (DOC:gsub('"#111"', '"#222"')),
+		top_node = (DOC:gsub('"content":"n"', '"content":"m"')),
+	} do
+		local k = cache.frame_keys(edited)
+		t.truthy(k.A ~= k0.A and k.B ~= k0.B, what)
+	end
+end
+
+tests.frame_keys_ignore_member_order = function(t)
+	stub.install({})
+	local reordered = '{"children":['
+		.. '{"id":"A","type":"frame","children":[{"content":"x","id":"t1","type":"text"},{"fill":"#111","reusable":true,"id":"C","type":"frame"}]},'
+		.. '{"type":"frame","id":"B","children":[{"type":"text","id":"t2","content":"y"}]},'
+		.. '{"type":"note","id":"N","content":"n"}],'
+		.. '"variables":{"bg":{"value":"#fff","type":"color"}},"version":"2.20"}'
+	t.eq(cache.frame_keys(reordered), cache.frame_keys(DOC))
+end
+
+tests.frame_keys_change_with_the_render_version = function(t)
+	stub.install({})
+	local before = cache.frame_keys(DOC).A
+	cache.RENDER_VERSION += 1
+	local after = cache.frame_keys(DOC).A
+	cache.RENDER_VERSION -= 1
+	t.truthy(before ~= after)
+end
+
+tests.frame_keys_of_something_else_are_empty = function(t)
+	stub.install({})
+	t.eq(cache.frame_keys("not json"), {})
+	t.eq(cache.frame_keys('{"children":3}'), {})
+end
+
+tests.orphans_spare_used_and_busy_images = function(t)
+	t.eq(cache.orphans({ "k1r2", "k2r2", "k3r2" }, { k1r2 = true }, { k3r2 = true }), { "k2r2" })
+end
+
+tests.stale_render_lists_other_render_versions = function(t)
+	local function entry(version: string): any
+		return { file = "f", name = version .. "-1", version = version, pane = 1, complete = true, used = 0, bytes = 0 }
+	end
+	local old, cur = entry("ab1r1"), entry("ab1r" .. tostring(cache.RENDER_VERSION))
+	t.eq(cache.stale_render({ old, cur }), { old })
 end
 
 return tests

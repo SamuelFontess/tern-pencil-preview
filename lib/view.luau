@@ -11,7 +11,7 @@ local ui = tern.ui
 local view = {}
 
 -- Why there is no image (`problem`) or what went wrong while one is shown (`notice`). Kinds: `nofile`,
--- `read`, `nocli`, `spawn`, `render`, `timeout`, `noframes`. `detail` is the tail of the CLI's output.
+-- `read`, `backup`, `nocli`, `spawn`, `render`, `timeout`, `noframes`. `detail` is the tail of the CLI's output.
 export type Problem = { kind: string, title: string, text: string, detail: string? }
 
 export type State = {
@@ -27,6 +27,15 @@ export type State = {
 	version: string?, -- cache version of the content shown
 	dir: string?, -- cache folder the images come from
 	blobs: { [string]: string }, -- frame id → blob id, for `dir`
+	keys: { [string]: string }, -- frame id → frame key for `dir`; frames without one keep their image in `dir`
+	batch_keys: { [string]: string }, -- keys of the running batch's frames, written to its folder at the end
+	held: { string }, -- image folders the running batch writes or reuses; sweeps leave them alone
+	have: number, -- bytes of the images the running batch reuses
+	follow: boolean, -- read Pencil's backup of unsaved edits when it exists (`v`)
+	source: "file" | "live", -- where the shown content came from
+	reading: "file" | "live", -- where the content of the last read came from
+	backups: { string }, -- Pencil's backup paths for this file, empty when unknown
+	input: string?, -- copy of a Live content that pen reads (never the user's file)
 	fallback: boolean, -- `dir` is filled one frame per run (the reserve path)
 	failed: string?, -- frame whose reserve render failed for this content; `r` clears it
 	blob: string?,
@@ -35,6 +44,7 @@ export type State = {
 	paused: boolean,
 	stopped: boolean,
 	force: boolean, -- `r` asked for a render that has not started yet
+	switch: boolean, -- `v` asked for the other source; the next check reads it like a first load
 	disk: string?, -- content of the version shown or last tried
 	pending: string?, -- a new content seen once; it renders when the next tick sees it again
 	caps: { [string]: number }, -- highest scale per frame id, after an export came out over the size limit
@@ -228,7 +238,7 @@ local function mainView(state: State, cx: BlockCx): Node
 	return set(ui.row(children), { key = "preview" })
 end
 
-local HINTS = "←→ frame  l layers  ↑↓ layer  r render  space pause  p open in Pencil  o open as text  y copy id"
+local HINTS = "←→ frame  l layers  ↑↓ layer  r render  space pause  v unsaved edits  p open in Pencil  o open as text  y copy id"
 
 local function dockView(state: State): Node
 	local spans: { Span | string } = { ui.span(state.name, "strong") }
@@ -249,7 +259,11 @@ local function dockView(state: State): Node
 		local line = (notice.title .. ": " .. notice.text):gsub("%s+", " ")
 		table.insert(spans, ui.span("  " .. clip(line, NOTICE_MAX), "warning"))
 	end
-	local status = ui.row({ ui.badge("File", "accent"), set(ui.text(spans), { grow = 1 }) })
+	local badge = if state.source == "live" then ui.badge("Live · unsaved", "warning") else ui.badge("File", "accent")
+	if not state.follow then
+		table.insert(spans, ui.span("  unsaved edits off", "muted"))
+	end
+	local status = ui.row({ badge, set(ui.text(spans), { grow = 1 }) })
 	return ui.col({ status, ui.text({ ui.span(HINTS, "dim") }) })
 end
 

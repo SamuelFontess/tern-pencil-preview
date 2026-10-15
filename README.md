@@ -1,6 +1,6 @@
 # tern-pencil-preview
 
-Previews pen.dev (Pencil) `.pen` designs in a native Tern block: the selected top-level frame (switch with Left/Right) as an image, its layers and an inspector, re-rendered when the file changes.
+Previews pen.dev (Pencil) `.pen` designs in a native Tern block: the selected top-level frame (switch with Left/Right) as an image, its layers and an inspector, re-rendered when the file changes, and unsaved edits while the file is open in the Pencil app.
 
 ![Pencil Preview showing a phone frame with its layer list and inspector](docs/layers.png)
 
@@ -49,6 +49,7 @@ Routing details: from the Files pane and the palette only a plain open is routed
 | `y` | Copy the selected layer id |
 | `r` | Render again (queued if a render is running) |
 | `Space` | Pause or resume watching the file |
+| `v` | Show or hide unsaved edits from the Pencil app (on by default) |
 | `p` | Open the file in the system app |
 | `o` | Open the file in the editor |
 
@@ -56,7 +57,9 @@ Keys with Ctrl, Alt or Meta are not handled by the block. Clicking a layer in th
 
 ## How it works
 
-When the file changes and then holds still for one poll (2 s), the block runs `pen interactive` headless once: it exports every top-level frame (the selected one first) as JPEG, or PNG for a frame without a background, at a scale up to 2 that keeps each image within 4096 px a side, then reads the layers. The images go to a render cache in the plugin data folder, so switching frames and reopening the file need no new run. The cache keeps the 2 latest versions of each file and at most 200 MB in all. The `.pen` file is never written. When the block cannot read the file's frames itself, it falls back to rendering one frame per run. Top-level frames without a fixed size, and frames the batch could not fit within 4096 px, are rendered one per run when selected, into the same cache.
+When the file changes and then holds still for one poll (2 s), the block runs `pen interactive` headless once: it exports every top-level frame that has no cached image yet (the selected one first) as JPEG, or PNG for a frame without a background, at a scale up to 2 that keeps each image within 4096 px a side, then reads the layers. The images go to a render cache in the plugin data folder, so switching frames and reopening the file need no new run. The cache keeps the 2 latest versions of each file and at most 200 MB in all. The `.pen` file is never written. When the block cannot read the file's frames itself, it falls back to rendering one frame per run. Top-level frames without a fixed size, and frames the batch could not fit within 4096 px, are rendered one per run when selected, into the same cache.
+
+While Pencil has unsaved edits of the file, it keeps a backup of the whole document in ~/.pencil/backup/ (rewritten about every 5 s and deleted on save or discard). The block reads that backup instead of the file, renders a copy of it with relative image paths resolved next to the file, and shows Live · unsaved in the dock. Each top-level frame has a key (a hash of the frame and of the document's variables, components and other top-level nodes); a new version exports only frames whose key has no image yet.
 
 ## Configuration
 
@@ -72,7 +75,7 @@ When the file changes and then holds still for one poll (2 s), the block runs `p
 
 ## Limitations
 
-- Shows the saved file, not unsaved edits in the Pencil app.
+- Live mode relies on Pencil's internal backup file (tested with Pencil 1.2.15 on Windows); if Pencil changes it, the block shows the saved file.
 - Top-level frames only.
 - The layer tree is read to depth 6.
 - `.pen` files over 16 MiB are refused.

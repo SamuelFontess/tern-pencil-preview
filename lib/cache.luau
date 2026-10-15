@@ -1,11 +1,12 @@
 --!strict
 -- Pure rules of the render cache: version keys, attempt folder names, and what to delete.
 local util = require("./util")
+local canon = require("./canon")
 
 local cache = {}
 
 -- Bump when the cache layout or the render output changes; folders of older versions stop matching.
-cache.RENDER_VERSION = 1
+cache.RENDER_VERSION = 2
 
 -- One attempt folder `<file>/<version>-<pane>`; `used` and `bytes` come from its `used` file.
 export type Entry = { file: string, name: string, version: string, pane: number, complete: boolean, used: number, bytes: number }
@@ -112,6 +113,79 @@ function cache.prune(entries: { Entry }, live: { [number]: boolean }, protect: {
 		if not protect[keyOf(e)] then
 			table.insert(out, e)
 			total -= e.bytes
+		end
+	end
+	return out
+end
+
+-- One key per top-level frame of `content`: the hash of the frame and of what any frame may draw from (members of
+-- the root other than `children`, top-level nodes that are not frames, `reusable` nodes anywhere), so an edit
+-- inside one frame changes only its key and an edit to a variable or a component changes them all. Empty when
+-- `content` is not a `.pen` document.
+function cache.frame_keys(content: string): { [string]: string }
+	local out: { [string]: string } = {}
+	local ok, decoded = pcall(tern.json.decode, content)
+	if not ok or typeof(decoded) ~= "table" or typeof((decoded :: any).children) ~= "table" then
+		return out
+	end
+	local root = decoded :: any
+	local shared: { string } = {}
+	for k, v in root do
+		if k ~= "children" then
+			table.insert(shared, tostring(k) .. "=" .. canon.encode(v))
+		end
+	end
+	table.sort(shared)
+	local function reusables(n: any)
+		if typeof(n) ~= "table" then
+			return
+		end
+		if n.reusable == true then
+			table.insert(shared, canon.encode(n))
+		end
+		if typeof(n.children) == "table" then
+			for _, c in n.children do
+				reusables(c)
+			end
+		end
+	end
+	local frames: { any } = {}
+	for _, node in root.children :: { any } do
+		if typeof(node) == "table" and node.type == "frame" then
+			table.insert(frames, node)
+		else
+			table.insert(shared, canon.encode(node))
+		end
+		reusables(node)
+	end
+	local base = table.concat(shared, "\n")
+	local seed = util.key(base) .. string.format("%x", #base)
+	for _, f in frames do
+		if typeof(f.id) == "string" then
+			local text = seed .. "\n" .. canon.encode(f)
+			out[f.id] = util.key(text) .. string.format("%x", #text) .. "r" .. tostring(cache.RENDER_VERSION)
+		end
+	end
+	return out
+end
+
+-- Names under `img/` that no kept version uses and no running batch writes.
+function cache.orphans(img_names: { string }, used: { [string]: boolean }, busy: { [string]: boolean }): { string }
+	local out: { string } = {}
+	for _, name in img_names do
+		if not used[name] and not busy[name] then
+			table.insert(out, name)
+		end
+	end
+	return out
+end
+
+-- Version folders written by another RENDER_VERSION; their layout or output no longer matches.
+function cache.stale_render(entries: { Entry }): { Entry }
+	local out: { Entry } = {}
+	for _, e in entries do
+		if tonumber(e.version:match("r(%d+)$")) ~= cache.RENDER_VERSION then
+			table.insert(out, e)
 		end
 	end
 	return out

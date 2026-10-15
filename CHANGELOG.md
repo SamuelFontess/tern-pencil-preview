@@ -3,6 +3,19 @@
 All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] - 2026-10-15
+
+### Added
+
+- Live mode: while the file has unsaved edits in the Pencil app, the block shows them (dock: `Live · unsaved`)
+  by reading the backup Pencil writes every few seconds. No process runs while nothing changes. `v` turns it off
+  and on.
+
+### Changed
+
+- A new version renders only the top-level frames that changed; the others reuse their image from the cache.
+  Editing a variable or a reusable component renders every frame. The render cache is rebuilt once.
+
 ## [0.2.0] - 2026-10-14
 
 ### Changed

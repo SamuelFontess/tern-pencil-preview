@@ -1,7 +1,7 @@
 schema = 1
 id = "pencil-preview"
 name = "Pencil Preview"
-version = "0.2.0"
+version = "0.3.0"
 description = "Preview pen.dev .pen designs: frames as images, layers and an inspector."
 icon = "pen"
 host = "host.luau"

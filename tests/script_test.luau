@@ -92,4 +92,10 @@ tests.exports_writes_one_export_per_item = function(t)
 	t.eq(js, 'Export(["a\\"b"],"jpeg","C:/o",{scale:2,quality:92});Export(["c"],"png","C:/o",{scale:1.5})')
 end
 
+tests.exports_go_to_each_item_folder = function(t)
+	stub.install({})
+	local js = script.exports({ { id = "a", scale = 2, format = "png", dir = "C:/k1" }, { id = "b", scale = 1, format = "png" } }, "C:/o")
+	t.eq(js, 'Export(["a"],"png","C:/k1",{scale:2});Export(["b"],"png","C:/o",{scale:1})')
+end
+
 return tests
