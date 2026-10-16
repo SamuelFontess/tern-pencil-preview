@@ -3,6 +3,8 @@
 -- `tern open` go to the Pencil Preview block instead of the editor, unless
 -- the command "Toggle Pencil Preview for .pen opens" turned that off.
 
+require("./board")
+
 -- The kv key of the switch; absent means on.
 local ROUTE_KEY = "route_pen"
 

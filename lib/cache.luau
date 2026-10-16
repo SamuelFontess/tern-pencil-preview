@@ -118,17 +118,10 @@ function cache.prune(entries: { Entry }, live: { [number]: boolean }, protect: {
 	return out
 end
 
--- One key per top-level frame of `content`: the hash of the frame and of what any frame may draw from (members of
--- the root other than `children`, top-level nodes that are not frames, `reusable` nodes anywhere), so an edit
--- inside one frame changes only its key and an edit to a variable or a component changes them all. Empty when
--- `content` is not a `.pen` document.
-function cache.frame_keys(content: string): { [string]: string }
-	local out: { [string]: string } = {}
-	local ok, decoded = pcall(tern.json.decode, content)
-	if not ok or typeof(decoded) ~= "table" or typeof((decoded :: any).children) ~= "table" then
-		return out
-	end
-	local root = decoded :: any
+-- The hash of what any frame may draw from: the members of the root other than `children`, the top-level nodes that
+-- are not frames and the `reusable` nodes anywhere. An edit to a variable or a component changes it, so it changes
+-- every frame's key; an edit inside one frame does not.
+function cache.shared_seed(root: any): string
 	local shared: { string } = {}
 	for k, v in root do
 		if k ~= "children" then
@@ -149,19 +142,28 @@ function cache.frame_keys(content: string): { [string]: string }
 			end
 		end
 	end
-	local frames: { any } = {}
 	for _, node in root.children :: { any } do
-		if typeof(node) == "table" and node.type == "frame" then
-			table.insert(frames, node)
-		else
+		if not (typeof(node) == "table" and node.type == "frame") then
 			table.insert(shared, canon.encode(node))
 		end
 		reusables(node)
 	end
 	local base = table.concat(shared, "\n")
-	local seed = util.key(base) .. string.format("%x", #base)
-	for _, f in frames do
-		if typeof(f.id) == "string" then
+	return util.key(base) .. string.format("%x", #base)
+end
+
+-- One key per top-level frame of `content`: the hash of the frame and of the shared seed, so an edit inside one frame
+-- changes only its key. Empty when `content` is not a `.pen` document.
+function cache.frame_keys(content: string): { [string]: string }
+	local out: { [string]: string } = {}
+	local ok, decoded = pcall(tern.json.decode, content)
+	if not ok or typeof(decoded) ~= "table" or typeof((decoded :: any).children) ~= "table" then
+		return out
+	end
+	local root = decoded :: any
+	local seed = cache.shared_seed(root)
+	for _, f in root.children :: { any } do
+		if typeof(f) == "table" and f.type == "frame" and typeof(f.id) == "string" then
 			local text = seed .. "\n" .. canon.encode(f)
 			out[f.id] = util.key(text) .. string.format("%x", #text) .. "r" .. tostring(cache.RENDER_VERSION)
 		end

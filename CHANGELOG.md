@@ -3,6 +3,20 @@
 All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.0] - 2026-10-16
+
+### Added
+
+- The board: the command "Open Pencil board (live mirror)" opens a Tern whiteboard with every top-level frame of a
+  `.pen` as an image, placed like the Pencil canvas, and keeps it up to date with the file's unsaved edits from the
+  Pencil app (changes made in Pencil or by an agent appear a few seconds after Pencil writes its backup). Pen
+  exports only the frames whose content changed, as PNG at scale 1, and the board swaps just those images. It is
+  read-only: nothing drawn on the board reaches Pencil or the file. Verified on Windows with Pencil 1.2.15.
+
+### Changed
+
+- `cache.shared_seed` is split out of `cache.frame_keys` (same keys).
+
 ## [0.3.1] - 2026-10-15
 
 ### Fixed

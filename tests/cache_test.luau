@@ -142,6 +142,22 @@ tests.frame_keys_of_something_else_are_empty = function(t)
 	t.eq(cache.frame_keys('{"children":3}'), {})
 end
 
+tests.shared_seed_follows_only_what_frames_share = function(t)
+	local tern = stub.install({})
+	local function of(doc: string): string
+		return cache.shared_seed(tern.json.decode(doc))
+	end
+	local seed = of(DOC)
+	t.eq(of((DOC:gsub('"content":"y"', '"content":"z"'))), seed, "an edit inside one frame")
+	for what, edited in {
+		variable = (DOC:gsub('"#fff"', '"#000"')),
+		reusable = (DOC:gsub('"#111"', '"#222"')),
+		note = (DOC:gsub('"content":"n"', '"content":"m"')),
+	} do
+		t.truthy(of(edited) ~= seed, what)
+	end
+end
+
 tests.orphans_spare_used_and_busy_images = function(t)
 	t.eq(cache.orphans({ "k1r2", "k2r2", "k3r2" }, { k1r2 = true }, { k3r2 = true }), { "k2r2" })
 end
