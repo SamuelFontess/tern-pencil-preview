@@ -1,12 +1,14 @@
 # tern-pencil-preview
 
-Previews pen.dev (Pencil) `.pen` designs in a native Tern block: the selected top-level frame (switch with Left/Right) as an image, its layers and an inspector, re-rendered when the file changes, and unsaved edits while the file is open in the Pencil app.
+Pencil Preview 0.4.0 brings pen.dev (Pencil) `.pen` designs into a live Tern whiteboard: every top-level frame appears as an image, arranged like the Pencil canvas. The board mirrors unsaved changes made in Pencil or through the Pencil MCP, updating only the frames that changed.
 
-![Pencil Preview showing a phone frame with its layer list and inspector](docs/layers.png)
+**The board is read-only:** editing, moving or drawing on it does not change Pencil or the `.pen` file. Editing designs from Tern is not supported yet.
 
-<img src="docs/preview.png" alt="Pencil Preview showing a phone frame and the dock" width="400">
+![Pencil Preview 0.4.0 showing all frames of the repository's sample design on a Tern whiteboard](docs/board.png)
 
 The example design is [`tests/fixtures/sample.pen`](tests/fixtures/sample.pen).
+
+The native preview block is also available for browsing individual frames, layers and properties.
 
 ## Requirements
 
@@ -60,6 +62,16 @@ Keys with Ctrl, Alt or Meta are not handled by the block. Clicking a layer in th
 The command "Open Pencil board (live mirror)" asks for the path of a `.pen` file (the last one is filled in) and opens a Tern whiteboard beside the focused block with every top-level frame as an image, placed like the Pencil canvas. It shows the file's unsaved edits from the Pencil app, so a change made in Pencil or by an agent (for example through the Pencil MCP) appears on the board a few seconds after Pencil writes its backup; with no unsaved edits it shows the file. For a 17-frame file, a single changed frame takes about 5 s from the backup to the board.
 
 The board is a mirror: nothing you draw or move on it reaches Pencil or the file. The frame images are locked. Running the command again closes the board this plugin opened before; a board left over from before a plugin reload stays open until you close it.
+
+Run the command from the Tern palette, or from a terminal inside Tern:
+
+```sh
+tern ctl plugins run plugin.pencil-preview.board
+```
+
+Enter the full path of your `.pen` file. To try the example in this repository, use the full path to `tests/fixtures/sample.pen` in your checkout.
+
+![Pencil Preview's live whiteboard beside a terminal showing the command used to open it](docs/board-split.png)
 
 ## How it works
 
