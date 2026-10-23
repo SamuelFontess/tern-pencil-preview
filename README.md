@@ -113,7 +113,7 @@ The gate type-checks every non-test `.luau` file with `luau-lsp` and runs `luau 
 
 Layout:
 
-- `plugin.toml`, `host.luau` (the `preview` block), `window.luau` (open routing and the toggle command), `board.luau` (the board command and its poll loop).
+- `plugin.toml`, `host.luau` (the `preview` block), `window.luau` (open routing, the toggle command and the board command, which loads `board.luau` and its `lib/` chain one tick at a time so the window `load` hook stays under its 50 ms budget), `board.luau` (opening the board and its poll loop).
 - `lib/`: `doc.luau` (reads the `.pen` top-level frames and parses the render summary), `launch.luau` (finds the pen CLI and the OS opener), `script.luau` (builds the snippets sent to `pen interactive`), `cache.luau` (render cache keys and cleanup rules), `store.luau` (render cache on disk), `util.luau` (paths, image sizes and frame/layer helpers), `view.luau` (block view).
 - `lib/mirror.luau`: the pen snippet that exports only changed frames, how its answer is read and the whiteboard edits that follow. `cache.shared_seed` is the hash of what all frames share.
 - `tests/`: `*_test.luau` unit tests registered in `run.luau`, the `tern` stub in `stub.luau`, and `fixtures/`.

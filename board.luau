@@ -304,22 +304,19 @@ local function start(cx: WindowCx, path: string)
 	end)
 end
 
-tern.command({
-	id = "board",
-	title = "Open Pencil board (live mirror)",
-	icon = "pen",
-	run = function(cx: WindowCx)
-		local last = tern.kv.get(LAST_KEY)
-		cx:prompt({
-			placeholder = "Full path of a .pen file",
-			value = if typeof(last) == "string" then last else nil,
-			action = "open board",
-		}):next(function(path: string?, _err: string?, fresh: WindowCx?)
-			if path and path ~= "" then
-				start((fresh or cx) :: WindowCx, (path:gsub('^"(.*)"$', "%1")))
-			end
-		end)
-	end,
-})
+local function open(cx: WindowCx)
+	local last = tern.kv.get(LAST_KEY)
+	cx:prompt({
+		placeholder = "Full path of a .pen file",
+		value = if typeof(last) == "string" then last else nil,
+		action = "open board",
+	}):next(function(path: string?, _err: string?, fresh: WindowCx?)
+		if path and path ~= "" then
+			start((fresh or cx) :: WindowCx, (path:gsub('^"(.*)"$', "%1")))
+		end
+	end)
+end
 
-return {}
+-- window.luau owns the "Open Pencil board (live mirror)" command: it loads this module's lib/
+-- chain one tick at a time, so a window hook never requires the whole chain in one go.
+return { open = open }

@@ -3,6 +3,18 @@
 All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.1] - 2026-10-23
+
+### Fixed
+
+- The window half could exceed Tern's 50 ms hook budget while loading on every reload and on a cold start, with the
+  require chain `window.luau` → `board.luau` → `lib/cache`, `lib/launch`, `lib/mirror`, `lib/script`, `lib/util` all
+  run inside the `load` hook. Tern then disabled the window half until a reload, so `.pen` opens went to the editor
+  and both "Open Pencil board (live mirror)" and "Toggle Pencil Preview for .pen opens" were missing from the
+  palette. The board's `lib/` chain, and `board.luau` itself, now load one module per timer tick, and only the
+  first time "Open Pencil board (live mirror)" runs; the `load` hook itself only registers routing and commands.
+  Reported in #1.
+
 ## [0.4.0] - 2026-10-16
 
 ### Added
