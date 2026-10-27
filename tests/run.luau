@@ -10,9 +10,20 @@ local SUITES: { string } = {
 	"./doc_test",
 	"./util_test",
 	"./cache_test",
-	"./store_test",
 	"./sha1_test",
 	"./mirror_test",
+	"./editor_launch_test",
+	"./editor_registry_test",
+	"./editor_projection_test",
+	"./editor_level_test",
+	"./editor_draft_test",
+	"./editor_gesture_test",
+	"./editor_label_test",
+	"./editor_chain_test",
+	"./editor_palette_test",
+	"./editor_hooks_test",
+	"./editor_board_test",
+	"./old_preview_test",
 }
 
 export type T = {

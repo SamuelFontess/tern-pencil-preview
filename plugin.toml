@@ -1,14 +1,13 @@
 schema = 1
 id = "pencil-preview"
 name = "Pencil Preview"
-version = "0.4.1"
-description = "Preview pen.dev .pen designs: frames as images, layers and an inspector, and a live whiteboard mirror."
+version = "0.5.0"
+description = "Native editing for pen.dev .pen designs in Tern, with an explicit readonly whiteboard mirror."
 icon = "pen"
-host = "host.luau"
 window = "window.luau"
+host = "host.luau"
 
 [[blocks]]
 id = "preview"
-title = "Pencil Preview"
-files = ["*.pen"]
+title = "Pencil Preview (replaced)"
 palette = false

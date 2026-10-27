@@ -8,8 +8,9 @@ mirror.MAX_SIDE = 4096
 -- blurred by the compression and stuttered at ~100 MP.
 mirror.CAP = 1
 
--- A top-level frame as pen measured it. `key` hashes its content; `exported` says this run wrote its image.
-export type Frame = { id: string, x: number, y: number, w: number, h: number, key: string, fill: boolean, exported: boolean }
+-- A top-level frame as pen measured it. `key` hashes its content; `exported` says this run wrote its image; `file` names
+-- that image when it is not `<dir>/<id>.png` (the native editor's renderer publishes by content key).
+export type Frame = { id: string, x: number, y: number, w: number, h: number, key: string, fill: boolean, exported: boolean, file: string? }
 -- What the board shows for a frame: the image shape, the backing shape (frames without a fill), the key it was
 -- drawn from and the folder holding the image file.
 export type Shown = { shape: string, bg: string?, key: string, dir: string }
@@ -108,7 +109,7 @@ function mirror.plan(shown: { [string]: Shown }, frames: { Frame }, dir: string,
 		if not f.exported then
 			continue
 		end
-		local file = dir .. "/" .. f.id .. ".png"
+		local file = f.file or (dir .. "/" .. f.id .. ".png")
 		if not exists(file) then
 			table.insert(missing, f.id)
 			continue

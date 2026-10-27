@@ -2,3 +2,5 @@ tern.d.luau
 /tmp/
 /.tern/
 /docs/superpowers/
+node_modules/
+/editor/.build/

@@ -1,0 +1,21 @@
+{
+  "name": "tern-pencil-editor",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test \"editor/tests/*.test.mjs\"",
+    "test:engine": "node --test \"editor/integration/*.test.mjs\"",
+    "build": "node editor/build.mjs",
+    "check:build": "node editor/build.mjs check"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}
